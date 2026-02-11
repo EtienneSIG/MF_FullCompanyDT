@@ -11,7 +11,7 @@ output:
   format: "csv"  # Options: csv, parquet, both
   structured_path: "output/structured"
   unstructured_path: "output/unstructured"
-  compression: true  # Gzip compression for CSV
+  compression: false  # Set to true for gzip compression (.csv.gz files)
   
 # ===== CONFORMED DIMENSIONS =====
 

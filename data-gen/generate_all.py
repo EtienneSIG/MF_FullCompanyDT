@@ -50,14 +50,22 @@ from generators.rd_generator import generate_rd_data
 from generators.quality_security_generator import generate_quality_security_data
 
 
-# Configure logging
+# Configure logging with UTF-8 encoding
+file_handler = logging.FileHandler('data_generation.log', encoding='utf-8')
+stream_handler = logging.StreamHandler(sys.stdout)
+
+# Set encoding for stream handler to UTF-8 (if supported)
+try:
+    import io
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+except:
+    pass  # Fallback to default encoding
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('data_generation.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[file_handler, stream_handler]
 )
 logger = logging.getLogger(__name__)
 
@@ -98,10 +106,14 @@ def save_dataframe(df: pd.DataFrame, name: str, output_path: Path, config: Dict[
     compression = config['output'].get('compression', False)
     
     if format_type in ['csv', 'both']:
-        csv_path = output_path / f"{name}.csv"
-        compression_arg = 'gzip' if compression else None
-        df.to_csv(csv_path, index=False, compression=compression_arg)
-        logger.info(f"  Saved {name}.csv ({len(df):,} rows)")
+        if compression:
+            csv_path = output_path / f"{name}.csv.gz"
+            df.to_csv(csv_path, index=False, compression='gzip')
+            logger.info(f"  Saved {name}.csv.gz ({len(df):,} rows)")
+        else:
+            csv_path = output_path / f"{name}.csv"
+            df.to_csv(csv_path, index=False)
+            logger.info(f"  Saved {name}.csv ({len(df):,} rows)")
     
     if format_type in ['parquet', 'both']:
         parquet_path = output_path / f"{name}.parquet"
@@ -152,7 +164,7 @@ def generate_conformed_dimensions(config: Dict[str, Any], output_path: Path) -> 
     save_dataframe(dim_geography, 'DimGeography', output_path, config)
     dimensions['DimGeography'] = dim_geography
     
-    logger.info(f"✅ Conformed dimensions generated: {sum(len(df) for df in dimensions.values()):,} total rows")
+    logger.info(f"[OK] Conformed dimensions generated: {sum(len(df) for df in dimensions.values()):,} total rows")
     return dimensions
 
 
@@ -168,11 +180,11 @@ def generate_domain_data(domain_name: str, generator_func, config: Dict[str, Any
             save_dataframe(df, table_name, output_path, config)
         
         total_rows = sum(len(df) for df in domain_data.values())
-        logger.info(f"  ✅ {domain_name}: {len(domain_data)} tables, {total_rows:,} total rows")
+        logger.info(f"  [OK] {domain_name}: {len(domain_data)} tables, {total_rows:,} total rows")
         return domain_data
     
     except Exception as e:
-        logger.error(f"  ❌ Error generating {domain_name}: {e}", exc_info=True)
+        logger.error(f"  [ERROR] Error generating {domain_name}: {e}", exc_info=True)
         return {}
 
 
@@ -268,9 +280,9 @@ def main():
         
         integrity_results = validate_referential_integrity(all_tables)
         if integrity_results['passed']:
-            logger.info("  ✅ All referential integrity checks passed")
+            logger.info("  [OK] All referential integrity checks passed")
         else:
-            logger.warning(f"  ⚠️  {len(integrity_results['failures'])} integrity issues found")
+            logger.warning(f"  [WARNING] {len(integrity_results['failures'])} integrity issues found")
             for issue in integrity_results['failures'][:5]:  # Show first 5
                 logger.warning(f"    - {issue}")
     
@@ -278,9 +290,9 @@ def main():
         logger.info("Validating business rules...")
         rules_results = validate_business_rules(all_tables)
         if rules_results['passed']:
-            logger.info("  ✅ All business rule checks passed")
+            logger.info("  [OK] All business rule checks passed")
         else:
-            logger.warning(f"  ⚠️  {len(rules_results['failures'])} rule violations found")
+            logger.warning(f"  [WARNING] {len(rules_results['failures'])} rule violations found")
     
     # Generate unstructured data
     logger.info("")
@@ -291,9 +303,9 @@ def main():
     unstructured_config = config.get('unstructured', {})
     if unstructured_config:
         generate_unstructured_files(unstructured_config, unstructured_path, config['seed'], dimensions)
-        logger.info("  ✅ Unstructured data files generated")
+        logger.info("  [OK] Unstructured data files generated")
     else:
-        logger.info("  ⏭️  Skipped (no unstructured data configured)")
+        logger.info("  [SKIP] Skipped (no unstructured data configured)")
     
     # Summary
     end_time = datetime.now()
