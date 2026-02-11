@@ -196,8 +196,7 @@ def generate_dim_product(config: dict, seed: int) -> pd.DataFrame:
 
 
 def generate_dim_employee(config: dict, seed: int, start_date: str, end_date: str) -> pd.DataFrame:
-    """Generate employee dimension."""
-    random.seed(seed)
+    """Generate employee dimension (vectorized)."""
     np.random.seed(seed)
     fake = Faker()
     Faker.seed(seed)
@@ -205,128 +204,142 @@ def generate_dim_employee(config: dict, seed: int, start_date: str, end_date: st
     count = config['count']
     departments_config = config['departments']
     
-    employees = []
-    employee_counter = 0
+    print(f"  Generating {count:,} employees (vectorized)...")
     
+    # Pre-allocate arrays
+    employee_ids = [f"EMP_{i:05d}" for i in range(count)]
+    departments = []
+    
+    # Distribute employees across departments
     for dept_config in departments_config:
-        dept_name = dept_config['name']
-        dept_percentage = dept_config['percentage']
-        employees_in_dept = int(count * dept_percentage)
-        
-        for _ in range(employees_in_dept):
-            employee_id = f"EMP_{employee_counter:05d}"
-            full_name = fake.name()
-            email = f"{full_name.lower().replace(' ', '.')}@company.com"
-            
-            # Job titles by department
-            if dept_name == 'Sales':
-                job_titles = ['Sales Rep', 'Sr Sales Rep', 'Account Executive', 'Sales Manager']
-            elif dept_name == 'Engineering':
-                job_titles = ['Software Engineer', 'Sr Software Engineer', 'Engineering Manager', 'Architect']
-            elif dept_name == 'Customer Support':
-                job_titles = ['Support Agent', 'Sr Support Agent', 'Support Manager']
-            else:
-                job_titles = [f'{dept_name} Specialist', f'Sr {dept_name} Specialist', f'{dept_name} Manager']
-            
-            job_title = random.choice(job_titles)
-            
-            # Hire date
-            hire_date = fake.date_between(start_date='-10y', end_date='today')
-            
-            # Termination (based on attrition)
-            is_active = random.random() < config['active_percentage']
-            termination_date = None if is_active else fake.date_between(start_date=hire_date, end_date='today')
-            
-            # Manager (simplified - some random employee in same dept)
-            manager_id = f"EMP_{random.randint(0, max(0, employee_counter - 1)):05d}" if employee_counter > 0 else None
-            
-            # Location
-            location = random.choice(['Seattle, WA', 'New York, NY', 'Austin, TX', 'London, UK', 'Singapore'])
-            
-            # Employment type
-            emp_type_dist = config['employment_type_distribution']
-            employment_type = random.choices(
-                list(emp_type_dist.keys()),
-                weights=list(emp_type_dist.values())
-            )[0].replace('_', '-').title()
-            
-            # Performance
-            perf_dist = config['performance_distribution']
-            performance_rating = random.choices(
-                list(perf_dist.keys()),
-                weights=list(perf_dist.values())
-            )[0].title()
-            
-            employees.append({
-                'employee_id': employee_id,
-                'full_name': full_name,
-                'email': email,
-                'job_title': job_title,
-                'department': dept_name,
-                'manager_id': manager_id,
-                'hire_date': hire_date,
-                'termination_date': termination_date,
-                'is_active': is_active,
-                'location': location,
-                'employment_type': employment_type,
-                'salary_band': f"Band {random.randint(1, 5)}",
-                'performance_rating': performance_rating
-            })
-            
-            employee_counter += 1
+        dept_count = int(count * dept_config['percentage'])
+        departments.extend([dept_config['name']] * dept_count)
     
-    return pd.DataFrame(employees)
+    # Fill remainder
+    while len(departments) < count:
+        dept = np.random.choice([d['name'] for d in departments_config])
+        departments.append(dept)
+    
+    # Vectorized generation
+    full_names = [fake.name() for _ in range(count)]
+    emails = [f"{name.lower().replace(' ', '.')}@company.com" for name in full_names]
+    
+    # Job titles by department (vectorized)
+    job_titles = []
+    for dept in departments:
+        if dept == 'Sales':
+            titles = ['Sales Rep', 'Sr Sales Rep', 'Account Executive', 'Sales Manager']
+        elif dept == 'Engineering':
+            titles = ['Software Engineer', 'Sr Software Engineer', 'Engineering Manager', 'Architect']
+        elif dept == 'Customer Support':
+            titles = ['Support Agent', 'Sr Support Agent', 'Support Manager']
+        else:
+            titles = [f'{dept} Specialist', f'Sr {dept} Specialist', f'{dept} Manager']
+        job_titles.append(np.random.choice(titles))
+    
+    # Vectorized dates
+    hire_dates = [fake.date_between(start_date='-10y', end_date='today') for _ in range(count)]
+    is_active = np.random.random(count) < config['active_percentage']
+    termination_dates = [None if active else fake.date_between(start_date=hire_dates[i], end_date='today') 
+                        for i, active in enumerate(is_active)]
+    
+    # Vectorized locations, employment types, performance
+    locations = np.random.choice(
+        ['Seattle, WA', 'New York, NY', 'Austin, TX', 'London, UK', 'Singapore'],
+        count
+    )
+    
+    emp_type_dist = config['employment_type_distribution']
+    employment_types = np.random.choice(
+        [k.replace('_', '-').title() for k in emp_type_dist.keys()],
+        size=count,
+        p=list(emp_type_dist.values())
+    )
+    
+    perf_dist = config['performance_distribution']
+    performance_ratings = np.random.choice(
+        [k.title() for k in perf_dist.keys()],
+        size=count,
+        p=list(perf_dist.values())
+    )
+    
+    manager_ids = [f"EMP_{np.random.randint(0, max(1, i)):05d}" if i > 0 else None for i in range(count)]
+    salary_bands = [f"Band {np.random.randint(1, 6)}" for _ in range(count)]
+    
+    df = pd.DataFrame({
+        'employee_id': employee_ids,
+        'full_name': full_names,
+        'email': emails,
+        'job_title': job_titles,
+        'department': departments,
+        'manager_id': manager_ids,
+        'hire_date': hire_dates,
+        'termination_date': termination_dates,
+        'is_active': is_active,
+        'location': locations,
+        'employment_type': employment_types,
+        'salary_band': salary_bands,
+        'performance_rating': performance_ratings
+    })
+    
+    return df
 
 
 def generate_dim_geography(config: dict, dim_customer: pd.DataFrame, seed: int) -> pd.DataFrame:
-    """Generate geography dimension based on customer distribution."""
-    random.seed(seed)
+    """Generate geography dimension based on customer distribution (vectorized)."""
+    np.random.seed(seed)
     fake = Faker()
     Faker.seed(seed)
     
-    # Extract unique locations from customers
-    unique_locations = dim_customer[['country', 'region', 'city']].drop_duplicates()
+    print(f"  Generating geography dimension (vectorized)...")
     
-    geographies = []
-    for idx, row in unique_locations.iterrows():
-        geography_id = f"GEO_{row['country']}_{row['city'][:3].upper()}_{idx:03d}"
-        
-        # Map country to region details
-        country_code = row['country']
-        region = row['region']
-        
-        # Sub-region mapping (simplified)
-        if region == 'AMERICAS':
-            if country_code in ['US', 'CA']:
-                sub_region = 'North America'
-            else:
-                sub_region = 'Latin America'
-        elif region == 'EMEA':
-            if country_code in ['GB', 'DE', 'FR']:
-                sub_region = 'Western Europe'
-            else:
-                sub_region = 'Eastern Europe'
-        else:  # APAC
-            sub_region = 'Asia Pacific'
-        
-        # Country name
-        country_names = {
-            'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'BR': 'Brazil',
-            'GB': 'United Kingdom', 'DE': 'Germany', 'FR': 'France', 'IT': 'Italy', 'ES': 'Spain',
-            'CN': 'China', 'JP': 'Japan', 'IN': 'India', 'AU': 'Australia', 'SG': 'Singapore'
-        }
-        
-        geographies.append({
-            'geography_id': geography_id,
-            'country_code': country_code,
-            'country_name': country_names.get(country_code, country_code),
-            'region': region,
-            'sub_region': sub_region,
-            'state_province': fake.state() if country_code == 'US' else '',
-            'city': row['city'],
-            'postal_code': fake.postcode(),
-            'latitude': round(random.uniform(-90, 90), 6),
-            'longitude': round(random.uniform(-180, 180), 6)
-        })
+    # Extract unique locations from customers (vectorized)
+    unique_locations = dim_customer[['country', 'region', 'city']].drop_duplicates().reset_index(drop=True)
+    geo_count = len(unique_locations)
     
-    return pd.DataFrame(geographies)
+    # Vectorized ID generation
+    geography_ids = [f"GEO_{unique_locations.iloc[i]['country']}_{unique_locations.iloc[i]['city'][:3].upper()}_{i:03d}" 
+                    for i in range(geo_count)]
+    
+    # Vectorized sub-region mapping
+    def get_sub_region(row):
+        if row['region'] == 'AMERICAS':
+            return 'North America' if row['country'] in ['US', 'CA'] else 'Latin America'
+        elif row['region'] == 'EMEA':
+            return 'Western Europe' if row['country'] in ['GB', 'DE', 'FR'] else 'Eastern Europe'
+        else:
+            return 'Asia Pacific'
+    
+    sub_regions = unique_locations.apply(get_sub_region, axis=1)
+    
+    # Country name mapping (vectorized)
+    country_names = {
+        'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'BR': 'Brazil',
+        'GB': 'United Kingdom', 'DE': 'Germany', 'FR': 'France', 'IT': 'Italy', 'ES': 'Spain',
+        'CN': 'China', 'JP': 'Japan', 'IN': 'India', 'AU': 'Australia', 'SG': 'Singapore'
+    }
+    country_name_mapped = unique_locations['country'].map(country_names).fillna(unique_locations['country'])
+    
+    # Generate state/province only for US (vectorized)
+    state_provinces = [fake.state() if country == 'US' else '' 
+                      for country in unique_locations['country']]
+    
+    # Vectorized random coordinates
+    latitudes = np.round(np.random.uniform(-90, 90, geo_count), 6)
+    longitudes = np.round(np.random.uniform(-180, 180, geo_count), 6)
+    postal_codes = [fake.postcode() for _ in range(geo_count)]
+    
+    df = pd.DataFrame({
+        'geography_id': geography_ids,
+        'country_code': unique_locations['country'],
+        'country_name': country_name_mapped,
+        'region': unique_locations['region'],
+        'sub_region': sub_regions,
+        'state_province': state_provinces,
+        'city': unique_locations['city'],
+        'postal_code': postal_codes,
+        'latitude': latitudes,
+        'longitude': longitudes
+    })
+    
+    return df
