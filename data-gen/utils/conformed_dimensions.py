@@ -60,99 +60,77 @@ def generate_dim_date(start_date: str, end_date: str, fiscal_year_start_month: i
 
 def generate_dim_customer(config: dict, seed: int) -> pd.DataFrame:
     """Generate customer dimension."""
-    random.seed(seed)
     np.random.seed(seed)
     fake = Faker()
     Faker.seed(seed)
     
     count = config['count']
     
-    # Industry distribution
-    industries = []
-    for industry, pct in config['industry_distribution'].items():
-        industries.extend([industry.title()] * int(count * pct))
-    # Fill remainder
-    while len(industries) < count:
-        industries.append(random.choice(list(config['industry_distribution'].keys())).title())
-    random.shuffle(industries)
+    print(f"  Generating {count:,} customers (vectorized)...")
     
-    # Segment distribution
-    segments = []
-    for segment, pct in config['segment_distribution'].items():
-        segments.extend([segment.upper()] * int(count * pct))
-    while len(segments) < count:
-        segments.append(random.choice(list(config['segment_distribution'].keys())).upper())
-    random.shuffle(segments)
+    # Vectorized distribution generation
+    industry_dist = config['industry_distribution']
+    industries = np.random.choice(
+        [k.title() for k in industry_dist.keys()],
+        size=count,
+        p=list(industry_dist.values())
+    )
     
-    # Region distribution
-    regions = []
-    for region, pct in config['region_distribution'].items():
-        regions.extend([region.upper()] * int(count * pct))
-    while len(regions) < count:
-        regions.append(random.choice(list(config['region_distribution'].keys())).upper())
-    random.shuffle(regions)
+    segment_dist = config['segment_distribution']
+    segments = np.random.choice(
+        [k.upper() for k in segment_dist.keys()],
+        size=count,
+        p=list(segment_dist.values())
+    )
     
-    # Generate customers
-    customers = []
-    for i in range(count):
-        customer_id = f"CUST_{i:06d}"
-        
-        # Generate company name
-        customer_name = fake.company()
-        
-        # Determine country based on region
-        region = regions[i]
-        if region == 'AMERICAS':
-            country_choices = ['US', 'CA', 'MX', 'BR']
-        elif region == 'EMEA':
-            country_choices = ['GB', 'DE', 'FR', 'IT', 'ES']
-        else:  # APAC
-            country_choices = ['CN', 'JP', 'IN', 'AU', 'SG']
-        country = random.choice(country_choices)
-        
-        # Credit limit based on segment
-        segment = segments[i]
-        if segment == 'ENTERPRISE':
-            credit_limit = random.randint(1000000, 10000000)
-        elif segment == 'STRATEGIC':
-            credit_limit = random.randint(500000, 5000000)
-        else:  # SMB
-            credit_limit = random.randint(50000, 500000)
-        
-        # Customer since date
-        customer_since = fake.date_between(start_date='-10y', end_date='-1y')
-        
-        # LTV tier based on credit limit
-        if credit_limit >= 5000000:
-            ltv_tier = 'High'
-        elif credit_limit >= 500000:
-            ltv_tier = 'Medium'
-        else:
-            ltv_tier = 'Low'
-        
-        is_active = random.random() < config['active_percentage']
-        
-        customers.append({
-            'customer_id': customer_id,
-            'customer_name': customer_name,
-            'industry': industries[i],
-            'segment': segment,
-            'country': country,
-            'region': region,
-            'city': fake.city(),
-            'account_manager': fake.name(),
-            'customer_since': customer_since,
-            'credit_limit': credit_limit,
-            'is_active': is_active,
-            'lifetime_value_tier': ltv_tier
-        })
+    region_dist = config['region_distribution']
+    regions = np.random.choice(
+        [k.upper() for k in region_dist.keys()],
+        size=count,
+        p=list(region_dist.values())
+    )
     
-    return pd.DataFrame(customers)
+    # Generate customer data in batches
+    customer_names = [fake.company() for _ in range(count)]
+    cities = [fake.city() for _ in range(count)]
+    account_managers = [fake.name() for _ in range(count)]
+    
+    # Countries based on region
+    countries = np.where(regions == 'AMERICAS', np.random.choice(['US', 'CA', 'MX', 'BR'], count),
+                 np.where(regions == 'EMEA', np.random.choice(['GB', 'DE', 'FR', 'IT', 'ES'], count),
+                          np.random.choice(['CN', 'JP', 'IN', 'AU', 'SG'], count)))
+    
+    # Credit limits based on segment
+    credit_limits = np.where(segments == 'ENTERPRISE', np.random.randint(1000000, 10000001, count),
+                     np.where(segments == 'STRATEGIC', np.random.randint(500000, 5000001, count),
+                              np.random.randint(50000, 500001, count)))
+    
+    # LTV tiers
+    ltv_tiers = np.where(credit_limits >= 5000000, 'High',
+                np.where(credit_limits >= 500000, 'Medium', 'Low'))
+    
+    is_active = np.random.random(count) < config['active_percentage']
+    
+    df = pd.DataFrame({
+        'customer_id': [f"CUST_{i:06d}" for i in range(count)],
+        'customer_name': customer_names,
+        'industry': industries,
+        'segment': segments,
+        'country': countries,
+        'region': regions,
+        'city': cities,
+        'account_manager': account_managers,
+        'customer_since': [fake.date_between(start_date='-10y', end_date='-1y') for _ in range(count)],
+        'credit_limit': credit_limits,
+        'is_active': is_active,
+        'lifetime_value_tier': ltv_tiers
+    })
+    
+    return df
 
 
 def generate_dim_product(config: dict, seed: int) -> pd.DataFrame:
     """Generate product dimension."""
-    random.seed(seed)
     np.random.seed(seed)
     fake = Faker()
     Faker.seed(seed)
@@ -160,61 +138,61 @@ def generate_dim_product(config: dict, seed: int) -> pd.DataFrame:
     count = config['count']
     categories_config = config['categories']
     
-    products = []
-    product_counter = 0
+    print(f"  Generating {count:,} products (vectorized)...")
     
+    # Pre-allocate arrays
+    product_ids = [f"PROD_{i:05d}" for i in range(count)]
+    categories = []
+    subcategories = []
+    
+    # Distribute products across categories
     for cat_config in categories_config:
-        category_name = cat_config['name']
-        subcategories = cat_config['subcategories']
-        cat_percentage = cat_config['percentage']
-        products_in_category = int(count * cat_percentage)
-        
-        for _ in range(products_in_category):
-            product_id = f"PROD_{product_counter:05d}"
-            subcategory = random.choice(subcategories)
-            
-            # Generate product name
-            product_name = f"{fake.word().title()} {random.choice(['Pro', 'Plus', 'Elite', 'Max', 'Ultra'])} {random.randint(100, 9999)}"
-            
-            # SKU
-            sku = f"{category_name[:3].upper()}-{subcategory[:3].upper()}-{random.randint(1000, 9999)}"
-            
-            # Pricing
-            unit_cost = round(random.uniform(10, 500), 2)
-            list_price = round(unit_cost * random.uniform(1.5, 3.0), 2)
-            
-            # Lifecycle
-            lifecycle_dist = config['lifecycle_distribution']
-            lifecycle = random.choices(
-                list(lifecycle_dist.keys()),
-                weights=list(lifecycle_dist.values())
-            )[0].title()
-            
-            # Launch date
-            launch_date = fake.date_between(start_date='-5y', end_date='today')
-            
-            is_active = random.random() < config['active_percentage']
-            
-            products.append({
-                'product_id': product_id,
-                'product_name': product_name,
-                'sku': sku,
-                'category': category_name,
-                'subcategory': subcategory,
-                'brand': random.choice(['BrandA', 'BrandB', 'BrandC', 'BrandD']),
-                'unit_cost': unit_cost,
-                'list_price': list_price,
-                'product_line': category_name,
-                'launch_date': launch_date,
-                'is_active': is_active,
-                'lifecycle_stage': lifecycle,
-                'supplier_id': f"SUP_{random.randint(1, 100):03d}",
-                'weight_kg': round(random.uniform(0.1, 50.0), 2)
-            })
-            
-            product_counter += 1
+        cat_count = int(count * cat_config['percentage'])
+        categories.extend([cat_config['name']] * cat_count)
+        subcategories.extend([np.random.choice(cat_config['subcategories']) for _ in range(cat_count)])
     
-    return pd.DataFrame(products)
+    # Fill remainder
+    while len(categories) < count:
+        cat = np.random.choice(categories_config)
+        categories.append(cat['name'])
+        subcategories.append(np.random.choice(cat['subcategories']))
+    
+    # Vectorized generation
+    product_names = [f"{fake.word().title()} {np.random.choice(['Pro', 'Plus', 'Elite', 'Max', 'Ultra'])} {np.random.randint(100, 9999)}" for _ in range(count)]
+    brands = np.random.choice(['BrandA', 'BrandB', 'BrandC', 'BrandD'], count)
+    supplier_ids = [f"SUP_{np.random.randint(1, 101):03d}" for _ in range(count)]
+    
+    unit_costs = np.random.uniform(10, 500, count)
+    list_prices = unit_costs * np.random.uniform(1.5, 3.0, count)
+    weights = np.random.uniform(0.1, 50.0, count)
+    
+    lifecycle_dist = config['lifecycle_distribution']
+    lifecycles = np.random.choice(
+        [k.title() for k in lifecycle_dist.keys()],
+        size=count,
+        p=list(lifecycle_dist.values())
+    )
+    
+    is_active = np.random.random(count) < config['active_percentage']
+    
+    df = pd.DataFrame({
+        'product_id': product_ids,
+        'product_name': product_names,
+        'sku': [f"{categories[i][:3].upper()}-{subcategories[i][:3].upper()}-{np.random.randint(1000, 10000)}" for i in range(count)],
+        'category': categories,
+        'subcategory': subcategories,
+        'brand': brands,
+        'unit_cost': np.round(unit_costs, 2),
+        'list_price': np.round(list_prices, 2),
+        'product_line': categories,
+        'launch_date': [fake.date_between(start_date='-5y', end_date='today') for _ in range(count)],
+        'is_active': is_active,
+        'lifecycle_stage': lifecycles,
+        'supplier_id': supplier_ids,
+        'weight_kg': np.round(weights, 2)
+    })
+    
+    return df
 
 
 def generate_dim_employee(config: dict, seed: int, start_date: str, end_date: str) -> pd.DataFrame:
