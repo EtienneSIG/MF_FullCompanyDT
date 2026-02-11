@@ -26,13 +26,16 @@ def generate_hr_data(config: dict, dimensions: Dict[str, pd.DataFrame], seed: in
     attrition_types = np.random.choice(['Voluntary', 'Involuntary', 'Retirement'], 
                                        size=len(attrition_employees), p=[0.75, 0.20, 0.05])
     
+    # Calculate tenure_years from hire_date (assuming termination date is the reference)
+    tenure_years = np.random.uniform(0.5, 15.0, len(attrition_employees))
+    
     df_attrition = pd.DataFrame({
         'employee_id': attrition_employees['employee_id'].values,
         'termination_date': attrition_dates['date'].values,
         'termination_type': attrition_types,
         'is_regrettable': np.random.random(len(attrition_employees)) < 0.60,
         'department': attrition_employees['department'].values,
-        'tenure_years': attrition_employees['tenure_years'].values
+        'tenure_years': np.round(tenure_years, 1)
     })
     
     # FactHiring - new hires
