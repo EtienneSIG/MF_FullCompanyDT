@@ -1,0 +1,399 @@
+# Configuration for Full Enterprise Data Generation
+# All 15+ business domains
+
+# Global Settings
+seed: 42  # Fixed seed for reproducibility
+start_date: "2023-01-01"
+end_date: "2026-02-28"  # 3+ years of history
+
+# Output Settings
+output:
+  format: "csv"  # Options: csv, parquet, both
+  structured_path: "output/structured"
+  unstructured_path: "output/unstructured"
+  compression: true  # Gzip compression for CSV
+  
+# ===== CONFORMED DIMENSIONS =====
+
+dim_date:
+  # Auto-generated for date range
+  include_fiscal_calendar: true  # Fiscal year starts July 1
+  include_holidays: true  # US federal holidays
+  
+dim_customer:
+  count: 50000
+  industry_distribution:
+    manufacturing: 0.25
+    technology: 0.20
+    retail: 0.15
+    healthcare: 0.12
+    finance: 0.10
+    other: 0.18
+  segment_distribution:
+    enterprise: 0.20  # >$10M annual spend
+    smb: 0.60         # $100K-$10M
+    strategic: 0.20   # Strategic partnerships
+  region_distribution:
+    americas: 0.40
+    emea: 0.35
+    apac: 0.25
+  active_percentage: 0.95  # 5% inactive/churned
+  
+dim_product:
+  count: 5000
+  categories:
+    - name: "Electronics"
+      subcategories: ["Smartphones", "Laptops", "Tablets", "Accessories"]
+      percentage: 0.30
+    - name: "Home Appliances"
+      subcategories: ["Kitchen", "Laundry", "Cleaning", "Climate Control"]
+      percentage: 0.25
+    - name: "Furniture"
+      subcategories: ["Office", "Living Room", "Bedroom", "Outdoor"]
+      percentage: 0.20
+    - name: "Industrial Equipment"
+      subcategories: ["Machinery", "Tools", "Safety Equipment", "Parts"]
+      percentage: 0.15
+    - name: "Consumables"
+      subcategories: ["Office Supplies", "Cleaning", "Safety", "Packaging"]
+      percentage: 0.10
+  lifecycle_distribution:
+    growth: 0.25
+    mature: 0.50
+    decline: 0.20
+    eol: 0.05  # End of life
+  active_percentage: 0.90  # 10% discontinued
+  
+dim_employee:
+  count: 2000
+  departments:
+    - name: "Sales"
+      percentage: 0.20
+    - name: "Engineering"
+      percentage: 0.25
+    - name: "Operations"
+      percentage: 0.15
+    - name: "Customer Support"
+      percentage: 0.12
+    - name: "Marketing"
+      percentage: 0.08
+    - name: "Finance"
+      percentage: 0.08
+    - name: "HR"
+      percentage: 0.05
+    - name: "Legal & Compliance"
+      percentage: 0.03
+    - name: "R&D"
+      percentage: 0.04
+  employment_type_distribution:
+    full_time: 0.85
+    part_time: 0.10
+    contractor: 0.05
+  performance_distribution:
+    exceeds: 0.20
+    meets: 0.70
+    below: 0.10
+  active_percentage: 0.92  # 8% attrition over 3 years
+  
+dim_geography:
+  count: 500
+  # Auto-generated based on customer distribution
+  
+# ===== DOMAIN-SPECIFIC TABLES =====
+
+# 1. CRM Domain
+crm:
+  opportunities:
+    count: 75000
+    conversion_rate: 0.25  # 25% close won
+    average_deal_size: 50000  # USD
+    sales_cycle_days:
+      min: 14
+      max: 365
+      average: 90
+    stage_distribution:
+      lead: 0.20
+      qualified: 0.25
+      proposal: 0.20
+      negotiation: 0.15
+      closed_won: 0.15
+      closed_lost: 0.05
+      
+  activities:
+    per_opportunity: 8  # Average activities per opportunity
+    type_distribution:
+      call: 0.40
+      meeting: 0.25
+      email: 0.30
+      demo: 0.05
+      
+# 2. Sales Domain
+sales:
+  orders:
+    count: 500000  # Total orders (3 years)
+    lines_per_order:
+      min: 1
+      max: 20
+      average: 4
+    channel_distribution:
+      online: 0.35
+      retail: 0.25
+      partner: 0.25
+      direct_sales: 0.15
+    status_distribution:
+      delivered: 0.85
+      shipped: 0.08
+      pending: 0.04
+      cancelled: 0.02
+      returned: 0.01
+    seasonality: true  # Higher volume in Q4
+    growth_rate: 0.10  # 10% YoY growth
+    
+  returns:
+    rate: 0.025  # 2.5% of orders
+    reason_distribution:
+      defective: 0.40
+      wrong_item: 0.25
+      not_needed: 0.20
+      other: 0.15
+      
+# 3. Product Domain
+product:
+  bom:
+    components_per_product: 8  # Average BOM depth
+    critical_component_percentage: 0.30
+    
+# 4. Marketing Domain
+marketing:
+  campaigns:
+    count: 2000  # Over 3 years
+    per_year: 667
+    channel_distribution:
+      email: 0.30
+      social: 0.25
+      display: 0.20
+      search: 0.15
+      events: 0.10
+    average_budget: 25000  # USD
+    average_ctr: 0.03  # 3% click-through rate
+    average_conversion_rate: 0.05  # 5% of clicks convert
+    
+# 5. HR Domain
+hr:
+  attrition:
+    annual_rate: 0.07  # 7% voluntary attrition
+    termination_type_distribution:
+      voluntary: 0.75
+      involuntary: 0.20
+      retirement: 0.05
+    regrettable_percentage: 0.60  # 60% of attrition is regrettable
+    
+  hiring:
+    count: 800  # New hires over 3 years
+    time_to_fill_days:
+      min: 21
+      max: 120
+      average: 45
+    source_distribution:
+      referral: 0.35
+      linkedin: 0.30
+      job_board: 0.25
+      agency: 0.10
+      
+# 6. Supply Chain Domain
+supply_chain:
+  inventory:
+    snapshot_frequency: "daily"  # Daily inventory snapshots
+    products_per_warehouse: 0.60  # 60% of products in each warehouse
+    warehouse_count: 10
+    stockout_rate: 0.03  # 3% stockout occasions
+    
+  purchase_orders:
+    count: 50000
+    lines_per_po: 5
+    on_time_delivery_rate: 0.85  # 85% on time
+    lead_time_days:
+      min: 7
+      max: 90
+      average: 30
+      
+# 7. Manufacturing Domain
+manufacturing:
+  production:
+    work_orders: 25000  # Per year
+    average_yield: 0.95  # 95% yield
+    average_oee: 0.82  # 82% OEE (Overall Equipment Effectiveness)
+    scrap_rate: 0.03  # 3% scrap
+    plant_count: 5
+    
+# 8. Finance Domain
+finance:
+  general_ledger:
+    transactions_per_month: 15000
+    account_count: 200  # Chart of accounts
+    
+  budget:
+    fiscal_year_start_month: 7  # July 1
+    versions: ["Original", "Revised Q1", "Revised Q2", "Revised Q3"]
+    forecast_accuracy: 0.90  # 90% accuracy
+    
+# 9. ESG Domain
+esg:
+  emissions:
+    facilities_count: 15
+    measurement_frequency: "monthly"
+    scope_distribution:
+      scope_1: 0.35  # Direct emissions
+      scope_2: 0.45  # Purchased energy
+      scope_3: 0.20  # Value chain
+    reduction_target: 0.05  # 5% annual reduction
+    
+# 10. Call Center Domain
+call_center:
+  support_tickets:
+    count: 200000  # Over 3 years
+    channel_distribution:
+      phone: 0.40
+      email: 0.35
+      chat: 0.20
+      portal: 0.05
+    category_distribution:
+      technical: 0.50
+      billing: 0.25
+      general_inquiry: 0.25
+    priority_distribution:
+      critical: 0.05
+      high: 0.15
+      medium: 0.50
+      low: 0.30
+    resolution_rate: 0.90  # 90% resolved
+    fcr_rate: 0.70  # 70% first contact resolution
+    csat_response_rate: 0.40  # 40% provide CSAT rating
+    average_csat: 4.1  # Out of 5
+    
+# 11. IT Ops Domain
+it_ops:
+  incidents:
+    count: 150000
+    severity_distribution:
+      p1: 0.05  # Critical
+      p2: 0.15  # High
+      p3: 0.50  # Medium
+      p4: 0.30  # Low
+    category_distribution:
+      hardware: 0.20
+      software: 0.40
+      network: 0.25
+      security: 0.15
+    mttr_minutes:  # Mean time to resolution
+      p1: 30
+      p2: 120
+      p3: 480
+      p4: 1440
+      
+# 12. FinOps Domain
+finops:
+  cloud_costs:
+    daily_records: 300  # Per day
+    providers:
+      azure: 0.50
+      aws: 0.35
+      gcp: 0.15
+    environment_distribution:
+      production: 0.60
+      development: 0.25
+      test: 0.15
+    monthly_spend: 250000  # USD
+    growth_rate: 0.15  # 15% annual growth
+    
+# 13. Risk & Compliance Domain
+risk_compliance:
+  controls:
+    count: 150
+    framework_distribution:
+      sox: 0.30
+      gdpr: 0.25
+      iso27001: 0.30
+      pci_dss: 0.15
+      
+  control_executions:
+    per_control_per_month: 1  # Varies by frequency
+    pass_rate: 0.70
+    
+  incidents:
+    count: 200
+    severity_distribution:
+      critical: 0.15
+      high: 0.25
+      medium: 0.40
+      low: 0.20
+      
+# 14. R&D Domain
+rd:
+  experiments:
+    count: 5000  # Per year
+    success_rate: 0.35  # 35% successful
+    average_cost: 15000  # USD
+    type_distribution:
+      prototype: 0.40
+      performance: 0.30
+      durability: 0.20
+      safety: 0.10
+      
+# 15. Quality & Security Domain
+quality_security:
+  defects:
+    count: 80000
+    defect_rate: 0.001  # 0.1% of production
+    severity_distribution:
+      critical: 0.10
+      major: 0.30
+      minor: 0.60
+    type_distribution:
+      cosmetic: 0.50
+      functional: 0.35
+      safety: 0.15
+    resolution_rate: 0.95  # 95% resolved with CAPA
+    
+# ===== UNSTRUCTURED DATA =====
+
+unstructured:
+  callcenter_emails:
+    count: 2500
+    avg_length_words: 150
+    languages: ["en", "es", "fr", "de"]  # Multi-language for translation demo
+    pii_percentage: 0.80  # 80% contain emails/phone for masking demo
+    
+  product_reviews:
+    count: 1500
+    avg_length_words: 80
+    sentiment_distribution:
+      positive: 0.60
+      neutral: 0.25
+      negative: 0.15
+      
+  risk_notes:
+    count: 500
+    avg_length_words: 200
+    
+  rd_lab_notes:
+    count: 500
+    avg_length_words: 250
+
+# ===== DATA QUALITY SETTINGS =====
+
+quality:
+  null_percentage:  # Max null percentage for nullable fields
+    default: 0.02  # 2% nulls
+    optional_fields: 0.15  # 15% nulls for truly optional
+  referential_integrity: true  # Enforce FK constraints
+  validate_date_ranges: true
+  check_business_rules: true
+  
+# ===== PERFORMANCE SETTINGS =====
+
+performance:
+  batch_size: 10000  # Records to generate in memory before writing
+  parallel_domains: true  # Generate domains in parallel
+  show_progress: true
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Generated Data (Do NOT commit generated datasets)
+data-gen/output/
+data-gen/**/*.csv
+data-gen/**/*.parquet
+data-gen/**/*.txt
+data-gen/**/*.json
+*.csv
+*.parquet
+
+# Logs
+*.log
+logs/
+data_generation.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Fabric / Power BI
+*.pbix
+*.pbit
+*.pbip
+.pbixproj.json
+
+# Azure
+.azure/
+
+# Secrets (never commit credentials)
+.env
+.env.local
+secrets.yml
+credentials.json
+
+# Test outputs
+test_output/
+tmp/
+temp/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
