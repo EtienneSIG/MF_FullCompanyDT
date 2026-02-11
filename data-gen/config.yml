@@ -104,7 +104,7 @@ dim_geography:
 # 1. CRM Domain
 crm:
   opportunities:
-    count: 75000
+    count: 10000  # Reduced from 75000 for faster generation
     conversion_rate: 0.25  # 25% close won
     average_deal_size: 50000  # USD
     sales_cycle_days:
@@ -120,7 +120,7 @@ crm:
       closed_lost: 0.05
       
   activities:
-    per_opportunity: 8  # Average activities per opportunity
+    per_opportunity: 3  # Reduced from 8 for faster generation
     type_distribution:
       call: 0.40
       meeting: 0.25
@@ -130,7 +130,7 @@ crm:
 # 2. Sales Domain
 sales:
   orders:
-    count: 500000  # Total orders (3 years)
+    count: 50000  # Reduced for faster generation
     lines_per_order:
       min: 1
       max: 20
@@ -166,8 +166,8 @@ product:
 # 4. Marketing Domain
 marketing:
   campaigns:
-    count: 2000  # Over 3 years
-    per_year: 667
+    count: 500  # Reduced for faster generation
+    per_year: 167
     channel_distribution:
       email: 0.30
       social: 0.25
@@ -209,8 +209,8 @@ supply_chain:
     stockout_rate: 0.03  # 3% stockout occasions
     
   purchase_orders:
-    count: 50000
-    lines_per_po: 5
+    count: 10000  # Reduced for faster generation
+    lines_per_po: 3  # Reduced from 5
     on_time_delivery_rate: 0.85  # 85% on time
     lead_time_days:
       min: 7
@@ -220,7 +220,7 @@ supply_chain:
 # 7. Manufacturing Domain
 manufacturing:
   production:
-    work_orders: 25000  # Per year
+    work_orders: 5000  # Reduced for faster generation
     average_yield: 0.95  # 95% yield
     average_oee: 0.82  # 82% OEE (Overall Equipment Effectiveness)
     scrap_rate: 0.03  # 3% scrap
@@ -229,7 +229,7 @@ manufacturing:
 # 8. Finance Domain
 finance:
   general_ledger:
-    transactions_per_month: 15000
+    transactions_per_month: 5000  # Reduced for faster generation
     account_count: 200  # Chart of accounts
     
   budget:
@@ -251,7 +251,7 @@ esg:
 # 10. Call Center Domain
 call_center:
   support_tickets:
-    count: 200000  # Over 3 years
+    count: 25000  # Reduced for faster generation
     channel_distribution:
       phone: 0.40
       email: 0.35
@@ -274,7 +274,7 @@ call_center:
 # 11. IT Ops Domain
 it_ops:
   incidents:
-    count: 150000
+    count: 20000  # Reduced for faster generation
     severity_distribution:
       p1: 0.05  # Critical
       p2: 0.15  # High

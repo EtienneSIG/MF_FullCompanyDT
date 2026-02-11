@@ -10,7 +10,7 @@ def generate_crm_data(config: dict, dimensions: Dict[str, pd.DataFrame], seed: i
     
     crm_config = config.get('crm', {})
     num_opportunities = crm_config.get('opportunities', {}).get('count', 10000)
-    activities_per_opp = crm_config.get('activities', {}).get('per_opportunity', 5)
+    activities_per_opp = crm_config.get('activities', {}).get('per_opportunity', 3)
     
     dim_customer = dimensions['DimCustomer']
     dim_employee = dimensions['DimEmployee']
@@ -25,83 +25,76 @@ def generate_crm_data(config: dict, dimensions: Dict[str, pd.DataFrame], seed: i
         # If no sales dept, use random employees
         sales_reps = dim_employee.sample(n=min(100, len(dim_employee)), random_state=seed)
     
-    # FactOpportunities
-    opportunities = []
+    print(f"  Generating {num_opportunities:,} opportunities...")
+    
+    # Vectorized approach - create all opportunities at once
+    customer_samples = dim_customer.sample(n=num_opportunities, replace=True, random_state=seed)
+    sales_rep_samples = sales_reps.sample(n=num_opportunities, replace=True, random_state=seed + 1)
+    date_samples = dim_date.sample(n=num_opportunities, replace=True, random_state=seed + 2)
+    
+    # Generate stages
+    stages = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost']
+    weights = [0.15, 0.20, 0.25, 0.20, 0.15, 0.05]
+    stage_values = np.random.choice(stages, size=num_opportunities, p=weights)
+    
+    # Generate amounts based on segment
+    amounts = np.zeros(num_opportunities)
+    segments = customer_samples['segment'].values
     
     for i in range(num_opportunities):
-        customer = dim_customer.sample(n=1, random_state=seed + i).iloc[0]
-        sales_rep = sales_reps.sample(n=1, random_state=seed + i).iloc[0]
-        
-        # Create date - random date in last 2 years
-        create_date = dim_date.sample(n=1, random_state=seed + i).iloc[0]['date']
-        
-        # Close date - 30-180 days after create
-        days_to_close = np.random.randint(30, 180)
-        close_date = create_date + timedelta(days=days_to_close)
-        
-        # Stage
-        stages = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost']
-        weights = [0.15, 0.20, 0.25, 0.20, 0.15, 0.05]
-        stage = np.random.choice(stages, p=weights)
-        
-        # Amount based on customer segment
-        if customer['segment'] == 'ENTERPRISE':
-            amount = np.random.uniform(50000, 500000)
-        elif customer['segment'] == 'STRATEGIC':
-            amount = np.random.uniform(25000, 200000)
+        if segments[i] == 'ENTERPRISE':
+            amounts[i] = np.random.uniform(50000, 500000)
+        elif segments[i] == 'STRATEGIC':
+            amounts[i] = np.random.uniform(25000, 200000)
         else:  # SMB
-            amount = np.random.uniform(1000, 25000)
-        
-        # Probability
-        prob_map = {
-            'Prospecting': 10,
-            'Qualification': 25,
-            'Proposal': 50,
-            'Negotiation': 75,
-            'Closed Won': 100,
-            'Closed Lost': 0
-        }
-        probability = prob_map[stage]
-        
-        is_closed = stage in ['Closed Won', 'Closed Lost']
-        is_won = stage == 'Closed Won'
-        
-        opportunities.append({
-            'opportunity_id': f'OPP-{i+1:06d}',
-            'customer_id': customer['customer_id'],
-            'sales_rep_id': sales_rep['employee_id'],
-            'opportunity_name': f"{customer['customer_name']} - {np.random.choice(['Product A', 'Product B', 'Service Package', 'Enterprise Solution'])}",
-            'stage': stage,
-            'amount': round(amount, 2),
-            'probability_pct': probability,
-            'create_date': create_date,
-            'close_date': close_date if is_closed else None,
-            'is_closed': is_closed,
-            'is_won': is_won,
-            'expected_revenue': round(amount * probability / 100, 2),
-            'lead_source': np.random.choice(['Website', 'Referral', 'Cold Call', 'Event', 'Partner']),
-            'region': customer['region']
-        })
+            amounts[i] = np.random.uniform(1000, 25000)
     
-    df_opportunities = pd.DataFrame(opportunities)
+    # Probability mapping
+    prob_map = {
+        'Prospecting': 10, 'Qualification': 25, 'Proposal': 50,
+        'Negotiation': 75, 'Closed Won': 100, 'Closed Lost': 0
+    }
+    probabilities = [prob_map[s] for s in stage_values]
     
-    # FactActivities
+    # Create DataFrame
+    df_opportunities = pd.DataFrame({
+        'opportunity_id': [f'OPP-{i+1:06d}' for i in range(num_opportunities)],
+        'customer_id': customer_samples['customer_id'].values,
+        'sales_rep_id': sales_rep_samples['employee_id'].values,
+        'opportunity_name': [f"{customer_samples.iloc[i]['customer_name']} - {np.random.choice(['Product A', 'Product B', 'Service Package', 'Enterprise Solution'])}" 
+                            for i in range(num_opportunities)],
+        'stage': stage_values,
+        'amount': np.round(amounts, 2),
+        'probability_pct': probabilities,
+        'create_date': date_samples['date'].values,
+        'close_date': [date_samples.iloc[i]['date'] + timedelta(days=np.random.randint(30, 180)) 
+                      if stage_values[i] in ['Closed Won', 'Closed Lost'] else None 
+                      for i in range(num_opportunities)],
+        'is_closed': [s in ['Closed Won', 'Closed Lost'] for s in stage_values],
+        'is_won': [s == 'Closed Won' for s in stage_values],
+        'expected_revenue': np.round(amounts * np.array(probabilities) / 100, 2),
+        'lead_source': np.random.choice(['Website', 'Referral', 'Cold Call', 'Event', 'Partner'], size=num_opportunities),
+        'region': customer_samples['region'].values
+    })
+    
+    print(f"  Generating activities (max {num_opportunities * activities_per_opp:,})...")
+    
+    # Generate activities - only for 60% of opportunities for speed
+    num_opps_with_activities = int(num_opportunities * 0.6)
     activities = []
-    activity_types = ['Call', 'Email', 'Meeting', 'Demo', 'Proposal Sent', 'Follow-up']
     
-    for opp in opportunities[:int(num_opportunities * 0.8)]:  # 80% of opps have activities
-        num_activities = np.random.randint(1, activities_per_opp + 1)
+    for i in range(num_opps_with_activities):
+        opp = df_opportunities.iloc[i]
+        num_acts = np.random.randint(1, activities_per_opp + 1)
         
-        for j in range(num_activities):
-            activity_date = opp['create_date'] + timedelta(days=np.random.randint(0, 90))
-            
+        for j in range(num_acts):
             activities.append({
                 'activity_id': f"ACT-{len(activities)+1:08d}",
                 'opportunity_id': opp['opportunity_id'],
                 'customer_id': opp['customer_id'],
                 'employee_id': opp['sales_rep_id'],
-                'activity_type': np.random.choice(activity_types),
-                'activity_date': activity_date,
+                'activity_type': np.random.choice(['Call', 'Email', 'Meeting', 'Demo', 'Proposal Sent', 'Follow-up']),
+                'activity_date': opp['create_date'] + timedelta(days=np.random.randint(0, 90)),
                 'duration_minutes': np.random.choice([15, 30, 60, 90]),
                 'outcome': np.random.choice(['Completed', 'No Answer', 'Rescheduled', 'Cancelled'], p=[0.7, 0.15, 0.1, 0.05]),
                 'notes': f"Activity for {opp['opportunity_name']}"
