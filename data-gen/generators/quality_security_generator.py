@@ -7,25 +7,38 @@ def generate_quality_security_data(config: dict, dimensions: Dict[str, pd.DataFr
     """Generate Quality & Security domain: FactQualityTests, FactSecurityEvents"""
     np.random.seed(seed)
     
+    quality_config = config.get('quality_security', {})
+    num_defects = quality_config.get('defects', {}).get('count', 80000)
+    num_events = 1500  # Security events
+    
     dim_product = dimensions['DimProduct']
     dim_date = dimensions['DimDate']
     
-    num_tests = 2000
-    num_events = 1000
+    print(f"  Generating {num_defects} quality defects and {num_events} security events...")
     
-    print(f"  Generating {num_tests} quality tests and {num_events} security events...")
+    # Quality Defects
+    product_samples = dim_product.sample(n=num_defects, replace=True, random_state=seed)
+    defect_dates = dim_date.sample(n=num_defects, replace=True, random_state=seed + 1)
     
-    # Quality Tests
-    product_samples = dim_product.sample(n=num_tests, replace=True, random_state=seed)
-    test_dates = dim_date.sample(n=num_tests, replace=True, random_state=seed + 1)
+    defect_config = quality_config.get('defects', {})
+    severity_dist = defect_config.get('severity_distribution', {})
+    type_dist = defect_config.get('type_distribution', {})
     
     df_quality = pd.DataFrame({
-        'test_id': [f'QT-{i+1:08d}' for i in range(num_tests)],
+        'defect_id': [f'DEF-{i+1:08d}' for i in range(num_defects)],
         'product_id': product_samples['product_id'].values,
-        'test_date': test_dates['date'].values,
-        'test_type': np.random.choice(['Functional', 'Performance', 'Safety', 'Reliability'], num_tests),
-        'result': np.random.choice(['Pass', 'Fail'], num_tests, p=[0.92, 0.08]),
-        'defects_found': np.random.poisson(0.5, num_tests)
+        'detection_date': defect_dates['date'].values,
+        'defect_type': np.random.choice(
+            list(type_dist.keys()),
+            num_defects,
+            p=list(type_dist.values())
+        ) if type_dist else np.random.choice(['Cosmetic', 'Functional', 'Safety'], num_defects),
+        'severity': np.random.choice(
+            list(severity_dist.keys()),
+            num_defects,
+            p=list(severity_dist.values())
+        ) if severity_dist else np.random.choice(['Critical', 'Major', 'Minor'], num_defects),
+        'resolved': np.random.random(num_defects) < defect_config.get('resolution_rate', 0.95)
     })
     
     # Security Events
@@ -39,4 +52,4 @@ def generate_quality_security_data(config: dict, dimensions: Dict[str, pd.DataFr
         'resolved': np.random.random(num_events) < 0.95
     })
     
-    return {'FactQualityTests': df_quality, 'FactSecurityEvents': df_security}
+    return {'FactDefects': df_quality, 'FactSecurityEvents': df_security}

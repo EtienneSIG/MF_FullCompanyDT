@@ -86,39 +86,69 @@ def load_config(config_path: str = 'config.yml') -> Dict[str, Any]:
 
 
 def create_output_directories(config: Dict[str, Any]) -> tuple:
-    """Create output directories for structured and unstructured data."""
+    """Create output directories for structured and unstructured data with Bronze layer structure."""
     structured_path = Path(config['output']['structured_path'])
     unstructured_path = Path(config['output']['unstructured_path'])
     
+    # Create base directories
     structured_path.mkdir(parents=True, exist_ok=True)
     unstructured_path.mkdir(parents=True, exist_ok=True)
+    
+    # Create Bronze layer domain directories
+    bronze_domains = [
+        'dimensions',  # For conformed dimensions
+        'crm',
+        'sales', 
+        'product',
+        'marketing',
+        'hr',
+        'supply_chain',
+        'manufacturing',
+        'finance',
+        'esg',
+        'call_center',
+        'itops',
+        'finops',
+        'risk_compliance',
+        'rd',
+        'quality_security'
+    ]
+    
+    for domain in bronze_domains:
+        domain_path = structured_path / domain
+        domain_path.mkdir(parents=True, exist_ok=True)
     
     logger.info(f"Output directories created:")
     logger.info(f"  Structured: {structured_path}")
     logger.info(f"  Unstructured: {unstructured_path}")
+    logger.info(f"  Bronze domains: {len(bronze_domains)} folders")
     
     return structured_path, unstructured_path
 
 
-def save_dataframe(df: pd.DataFrame, name: str, output_path: Path, config: Dict[str, Any]) -> None:
-    """Save DataFrame to CSV or Parquet based on configuration."""
+def save_dataframe(df: pd.DataFrame, name: str, output_path: Path, config: Dict[str, Any], domain: str = 'dimensions') -> None:
+    """Save DataFrame to CSV or Parquet based on configuration in Bronze layer structure."""
     format_type = config['output']['format']
     compression = config['output'].get('compression', False)
     
+    # Create domain-specific path (Bronze layer structure)
+    domain_path = output_path / domain
+    domain_path.mkdir(parents=True, exist_ok=True)
+    
     if format_type in ['csv', 'both']:
         if compression:
-            csv_path = output_path / f"{name}.csv.gz"
+            csv_path = domain_path / f"{name}.csv.gz"
             df.to_csv(csv_path, index=False, compression='gzip')
-            logger.info(f"  Saved {name}.csv.gz ({len(df):,} rows)")
+            logger.info(f"  Saved {domain}/{name}.csv.gz ({len(df):,} rows)")
         else:
-            csv_path = output_path / f"{name}.csv"
+            csv_path = domain_path / f"{name}.csv"
             df.to_csv(csv_path, index=False)
-            logger.info(f"  Saved {name}.csv ({len(df):,} rows)")
+            logger.info(f"  Saved {domain}/{name}.csv ({len(df):,} rows)")
     
     if format_type in ['parquet', 'both']:
-        parquet_path = output_path / f"{name}.parquet"
+        parquet_path = domain_path / f"{name}.parquet"
         df.to_parquet(parquet_path, index=False, compression='snappy')
-        logger.info(f"  Saved {name}.parquet ({len(df):,} rows)")
+        logger.info(f"  Saved {domain}/{name}.parquet ({len(df):,} rows)")
 
 
 def generate_conformed_dimensions(config: Dict[str, Any], output_path: Path) -> Dict[str, pd.DataFrame]:
@@ -137,31 +167,31 @@ def generate_conformed_dimensions(config: Dict[str, Any], output_path: Path) -> 
         end_date=config['end_date'],
         fiscal_year_start_month=config['finance']['budget'].get('fiscal_year_start_month', 7)
     )
-    save_dataframe(dim_date, 'DimDate', output_path, config)
+    save_dataframe(dim_date, 'DimDate', output_path, config, domain='dimensions')
     dimensions['DimDate'] = dim_date
     
     # DimCustomer
     logger.info("Generating DimCustomer...")
     dim_customer = generate_dim_customer(config['dim_customer'], seed)
-    save_dataframe(dim_customer, 'DimCustomer', output_path, config)
+    save_dataframe(dim_customer, 'DimCustomer', output_path, config, domain='dimensions')
     dimensions['DimCustomer'] = dim_customer
     
     # DimProduct
     logger.info("Generating DimProduct...")
     dim_product = generate_dim_product(config['dim_product'], seed)
-    save_dataframe(dim_product, 'DimProduct', output_path, config)
+    save_dataframe(dim_product, 'DimProduct', output_path, config, domain='dimensions')
     dimensions['DimProduct'] = dim_product
     
     # DimEmployee
     logger.info("Generating DimEmployee...")
     dim_employee = generate_dim_employee(config['dim_employee'], seed, config['start_date'], config['end_date'])
-    save_dataframe(dim_employee, 'DimEmployee', output_path, config)
+    save_dataframe(dim_employee, 'DimEmployee', output_path, config, domain='dimensions')
     dimensions['DimEmployee'] = dim_employee
     
     # DimGeography
     logger.info("Generating DimGeography...")
     dim_geography = generate_dim_geography(config['dim_geography'], dim_customer, seed)
-    save_dataframe(dim_geography, 'DimGeography', output_path, config)
+    save_dataframe(dim_geography, 'DimGeography', output_path, config, domain='dimensions')
     dimensions['DimGeography'] = dim_geography
     
     logger.info(f"[OK] Conformed dimensions generated: {sum(len(df) for df in dimensions.values()):,} total rows")
@@ -170,14 +200,14 @@ def generate_conformed_dimensions(config: Dict[str, Any], output_path: Path) -> 
 
 def generate_domain_data(domain_name: str, generator_func, config: Dict[str, Any], 
                         dimensions: Dict[str, pd.DataFrame], output_path: Path) -> Dict[str, pd.DataFrame]:
-    """Generate data for a specific domain."""
+    """Generate data for a specific domain and save in Bronze layer structure."""
     logger.info(f"Generating {domain_name} domain...")
     
     try:
         domain_data = generator_func(config, dimensions, config['seed'])
         
         for table_name, df in domain_data.items():
-            save_dataframe(df, table_name, output_path, config)
+            save_dataframe(df, table_name, output_path, config, domain=domain_name)
         
         total_rows = sum(len(df) for df in domain_data.values())
         logger.info(f"  [OK] {domain_name}: {len(domain_data)} tables, {total_rows:,} total rows")
