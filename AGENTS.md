@@ -9,14 +9,16 @@ This document defines conventions for GitHub Copilot Agent interactions when wor
 ## 🎯 Project Context
 
 **Goal:** Create a comprehensive Microsoft Fabric demo showcasing:
-- 15+ business domains with synthetic data
+- 7 integrated business domains (Sales, HR, Finance, Operations, Customer Service, IT Ops, ESG)
+- 17 gold star schema tables with 12 relationships
+- 42 DAX measures across all business domains
 - Medallion architecture (Bronze → Silver → Gold)
 - OneLake Shortcuts + AI Transformations
 - Power BI Semantic Model (Direct Lake)
 - Fabric Data Agent with natural language queries
 - Power BI MCP Server integration in VS Code
 
-**Audience:** Data Engineers, Analytics Engineers, Solution Architects, Business Analysts
+**Audience:** C-Suite Executives, Data Engineers, Analytics Engineers, Solution Architects, Business Analysts
 
 ---
 

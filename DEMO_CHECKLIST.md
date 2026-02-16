@@ -92,12 +92,24 @@
   - Connection: Direct Lake
   - Select all Dim* and Fact* tables
 
-- [ ] **Create Relationships:**
+- [ ] **Create Relationships (12 total):**
   - Open in Power BI Desktop or Fabric Model View
-  - Create relationships:
-    - FactSales → DimCustomer (customer_id)
-    - FactSales → DimProduct (product_id)
-    - FactSales → DimEmployee (employee_id)
+  - Sales domain:
+    - gold_factsales → gold_dimdate (order_date_id)
+    - gold_factsales → gold_dimcustomer (customer_id)
+    - gold_factsales → gold_dimproduct (product_id)
+    - gold_factsales → gold_dimemployee (employee_id)
+    - gold_factreturns → gold_dimdate (return_date_id)
+    - gold_factreturns → gold_dimproduct (product_id)
+    - gold_factreturns → gold_dimcustomer (customer_id)
+    - gold_factopportunities → gold_dimcustomer (customer_id)
+    - gold_factopportunities → gold_dimemployee (owner_id)
+  - HR domain:
+    - gold_factattrition → gold_dimemployee (employee_id)
+  - Operations:
+    - gold_factproduction → gold_dimproduct (product_id)
+  - CRM:
+    - gold_factactivities → gold_dimemployee (employee_id)
     - FactSales → DimDate (order_date_id, ship_date_id, delivery_date_id)
     - [Repeat for all fact tables]
   - Verify all relationships are one-to-many

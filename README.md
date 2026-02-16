@@ -3,15 +3,16 @@
 ## 🎯 Objective
 
 Comprehensive Microsoft Fabric demo showcasing an **end-to-end enterprise data platform** with:
-- **15+ business domains** (CRM, Sales, Product, Marketing, HR, Supply Chain, Manufacturing, Finance, ESG, Call Center, IT Ops, FinOps, Risk & Compliance, R&D, Quality & Security)
+- **7 integrated business domains** (Sales, HR, Finance, Operations, Customer Service, IT Ops, ESG)
+- **17 Gold star schema tables** with 12 relationships
+- **42 DAX measures** organized by business domain
 - **Medallion Architecture** (Bronze → Silver → Gold)
-- **Conformed Dimensions** + **Star Schemas** for analytics
 - **OneLake Shortcuts** + **AI Transformations** on unstructured data
-- **Power BI Semantic Model** (Direct Lake) with 100+ DAX measures
+- **Power BI Semantic Model** (Direct Lake) with comprehensive metrics
 - **Fabric Data Agent** with multi-domain insights
 - **Power BI MCP Server** integration for VS Code development
 
-**Personas:** CDO, Enterprise Architect, Data Platform Team, Business Analysts, Data Scientists
+**Personas:** C-Suite Executives, CDO, Enterprise Architect, Data Platform Team, Business Analysts
 
 ---
 
@@ -119,35 +120,46 @@ MF_FullCompanyDT/
 
 ## 📊 Data Domains & Volume
 
-### Conformed Dimensions (Shared Across Domains)
+### Gold Star Schema Tables (17 tables)
 
-| Dimension | Records | Description |
-|-----------|---------|-------------|
-| **DimDate** | 1,095 | 3 years (2023-2026) with fiscal calendar |
-| **DimGeography** | 500 | Countries, Regions, Cities with hierarchies |
-| **DimCustomer** | 50,000 | B2B accounts with industry/segment |
-| **DimEmployee** | 2,000 | Workforce with org hierarchy |
-| **DimProduct** | 5,000 | Product catalog with categories/subcategories |
+#### Dimension Tables (5)
 
-### Domain-Specific Tables
+| Dimension | Description | Key Attributes |
+|-----------|-------------|----------------|
+| **gold_dimdate** | Time intelligence with fiscal calendar | date_id, year, quarter, month, week, fiscal_year |
+| **gold_dimgeography** | Location hierarchy | geography_id, country, region, city, facility |
+| **gold_dimcustomer** | Customer master data | customer_id, name, segment, industry, region |
+| **gold_dimemployee** | Employee master with org hierarchy | employee_id, name, title, department, manager_id |
+| **gold_dimproduct** | Product catalog with categories | product_id, name, category, subcategory, unit_cost |
 
-| Domain | Key Tables | Records (Approx) |
-|--------|-----------|------------------|
-| **CRM** | Accounts, Contacts, Opportunities, Activities | 150,000 |
-| **Sales** | Orders, OrderLines, Invoices, Returns, Pricing | 2,000,000 |
-| **Product** | Product, Categories, BOM, Lifecycle, Releases | 50,000 |
-| **Marketing** | Campaigns, Leads, Attribution, WebEvents | 500,000 |
-| **HR** | Employees, Hiring, Attrition, Performance, Training | 25,000 |
-| **Supply Chain** | Suppliers, POs, Shipments, Inventory, Warehouses | 300,000 |
-| **Manufacturing** | Lots, Batches, WorkOrders, Yield, Scrap, OEE | 100,000 |
-| **Finance** | GeneralLedger, CostCenters, Budget, Actuals, Cashflow | 500,000 |
-| **ESG** | EnergyConsumption, Emissions, Sustainability KPIs | 50,000 |
-| **Call Center** | Tickets, Interactions, CSAT, Transcripts | 200,000 |
-| **IT Ops** | Incidents, Changes, Assets, CMDB | 150,000 |
-| **FinOps** | CloudCosts, Tags, Chargebacks | 100,000 |
-| **Risk & Compliance** | Controls, Findings, Audits | 10,000 |
-| **R&D** | Experiments, TestResults, LabNotes | 30,000 |
-| **Quality & Security** | Defects, Nonconformities, CAPA, SecurityEvents | 80,000 |
+#### Fact Tables (12)
+
+| Fact Table | Business Domain | Description | Key Metrics |
+|------------|----------------|-------------|-------------|
+| **gold_factsales** | Sales | Sales transactions | revenue, quantity, discount, gross_margin |
+| **gold_factreturns** | Sales | Product returns | return_amount, return_quantity, reason |
+| **gold_factopportunities** | Sales | Sales pipeline | opportunity_amount, probability, stage |
+| **gold_factattrition** | HR | Employee departures | termination_type, tenure, replacement_cost |
+| **gold_facthiring** | HR | Recruitment | time_to_hire, cost_per_hire, source |
+| **gold_factincidents** | IT Ops / Customer Service | Support tickets & IT incidents | resolution_time, priority, category |
+| **gold_factprojects** | Operations | Project execution | budget, actual_cost, timeline |
+| **gold_factproduction** | Operations | Manufacturing metrics | quantity_produced, scrap_rate, oee |
+| **gold_factgeneralledger** | Finance | Financial transactions | amount, account, cost_center |
+| **gold_factcloudcosts** | IT Ops | Cloud infrastructure costs | cost, service_type, resource_id |
+| **gold_factemissions** | ESG | Carbon footprint | emissions_co2e, scope, source |
+| **gold_factactivities** | CRM | Customer interactions | activity_type, duration, outcome |
+
+### Business Domains & Scenarios
+
+| Domain | Scenario Document | Key KPIs | Tables Used |
+|--------|------------------|----------|-------------|
+| **Sales** | scenario-sales.md | Revenue, Gross Margin %, Win Rate | factsales, factreturns, factopportunities |
+| **HR** | scenario-hr.md | Attrition Rate, Time to Hire | factattrition, facthiring |
+| **Finance** | scenario-finance.md | EBITDA Margin, Budget Variance | factgeneralledger |
+| **Operations** | scenario-operations.md | OEE, Scrap Rate, MTBF | factproduction, factincidents |
+| **Customer Service** | scenario-customer-service.md | CSAT, FCR, Resolution Time | factincidents |
+| **IT Ops** | scenario-it-ops.md | System Availability, MTTR, Cloud Costs | factincidents, factcloudcosts |
+| **ESG** | scenario-esg.md | Carbon Emissions, Renewable Energy % | factemissions |
 
 **Total Volume:** ~4.2M structured records + 5,000+ text files
 
