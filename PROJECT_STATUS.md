@@ -78,7 +78,7 @@ MF_FullCompanyDT/
 - ✅ **docs/data-catalog.md** - Complete data dictionary with all tables
 - ✅ **docs/demo-script.md** - Detailed demo walkthrough
 
-### 2. Business Scenario Documentation (7 domains)
+### 2. Business Scenario Documentation (8 scenarios)
 - ✅ **docs/scenario-sales.md** - Sales Performance Analysis (658 lines)
 - ✅ **docs/scenario-hr.md** - Talent Management & Attrition (811 lines)
 - ✅ **docs/scenario-finance.md** - Financial Planning & Analysis
@@ -86,6 +86,7 @@ MF_FullCompanyDT/
 - ✅ **docs/scenario-customer-service.md** - Customer Service Excellence
 - ✅ **docs/scenario-it-ops.md** - IT Operations & Infrastructure Management
 - ✅ **docs/scenario-esg.md** - Environmental, Social, and Governance Reporting
+- ✅ **docs/scenario-cross-domain.md** - Cross-Domain Enterprise Analytics (C-Suite insights using all 17 tables)
 
 ### 3. Power BI Semantic Model
 - ✅ **17 Gold Tables** - 5 dimensions + 12 fact tables in star schema

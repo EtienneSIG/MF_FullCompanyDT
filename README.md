@@ -160,6 +160,7 @@ MF_FullCompanyDT/
 | **Customer Service** | scenario-customer-service.md | CSAT, FCR, Resolution Time | factincidents |
 | **IT Ops** | scenario-it-ops.md | System Availability, MTTR, Cloud Costs | factincidents, factcloudcosts |
 | **ESG** | scenario-esg.md | Carbon Emissions, Renewable Energy % | factemissions |
+| **Cross-Domain** | scenario-cross-domain.md | Enterprise ROI, ESG Impact, Employee Experience Value | All 17 tables |
 
 **Total Volume:** ~4.2M structured records + 5,000+ text files
 
