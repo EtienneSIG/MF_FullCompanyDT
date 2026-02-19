@@ -66,7 +66,7 @@ def generate_supply_chain_data(config: dict, dimensions: Dict[str, pd.DataFrame]
     # ===== FactInventory =====
     print(f"  Generating inventory snapshots...")
     
-    # Get daily snapshot dates (use every 7th day for performance)
+    # Get weekly snapshot dates (use every 7th day for performance)
     snapshot_dates = dim_date[dim_date['day_of_month'].isin([1, 8, 15, 22])].copy()
     num_snapshots = len(snapshot_dates)
     
@@ -84,40 +84,65 @@ def generate_supply_chain_data(config: dict, dimensions: Dict[str, pd.DataFrame]
     
     num_warehouses = len(warehouse_ids)
     
-    # Sample products (60% of products in each warehouse)
-    products_per_warehouse = int(len(dim_product) * 0.60)
+    # Optimize: Sample products once (30% of products in each warehouse for performance)
+    products_per_warehouse = int(len(dim_product) * 0.30)  # Reduced from 0.60
     
-    # Generate inventory snapshots
-    inventory_records = []
+    # Vectorized generation - sample products once per warehouse
+    np.random.seed(seed + 10)
     
-    for snapshot_date in snapshot_dates['date'].values:
-        for wh_idx in range(num_warehouses):
-            # Sample products for this warehouse
-            warehouse_products = dim_product.sample(n=products_per_warehouse, replace=False, 
-                                                   random_state=seed + wh_idx)
-            
-            for _, product in warehouse_products.iterrows():
-                # Generate inventory levels
-                reorder_point = np.random.randint(50, 500)
-                max_level = reorder_point * 3
-                on_hand = np.random.randint(0, max_level)
-                on_order = np.random.randint(0, reorder_point * 2) if on_hand < reorder_point else 0
-                
-                inventory_records.append({
-                    'snapshot_date': snapshot_date,
-                    'warehouse_id': warehouse_ids[wh_idx],
-                    'warehouse_name': warehouse_names[wh_idx],
-                    'product_id': product['product_id'],
-                    'quantity_on_hand': on_hand,
-                    'quantity_on_order': on_order,
-                    'quantity_available': on_hand,
-                    'reorder_point': reorder_point,
-                    'unit_cost': product['unit_cost'],
-                    'inventory_value': np.round(on_hand * product['unit_cost'], 2),
-                    'is_stockout': on_hand == 0
-                })
+    # Pre-calculate total records
+    total_inventory_records = num_snapshots * num_warehouses * products_per_warehouse
+    print(f"  Generating {total_inventory_records:,} inventory records (vectorized)...")
     
-    df_inventory = pd.DataFrame(inventory_records)
+    # Generate all combinations using numpy arrays (much faster)
+    snapshot_dates_array = snapshot_dates['date'].values
+    
+    # Create arrays for each dimension
+    all_snapshot_dates = []
+    all_warehouse_ids = []
+    all_warehouse_names = []
+    all_product_ids = []
+    all_unit_costs = []
+    
+    for wh_idx in range(num_warehouses):
+        # Sample products for this warehouse once
+        warehouse_products = dim_product.sample(n=products_per_warehouse, replace=False, 
+                                               random_state=seed + wh_idx + 100)
+        
+        # Repeat for all snapshot dates
+        all_snapshot_dates.extend(np.repeat(snapshot_dates_array, products_per_warehouse))
+        all_warehouse_ids.extend([warehouse_ids[wh_idx]] * (num_snapshots * products_per_warehouse))
+        all_warehouse_names.extend([warehouse_names[wh_idx]] * (num_snapshots * products_per_warehouse))
+        all_product_ids.extend(np.tile(warehouse_products['product_id'].values, num_snapshots))
+        all_unit_costs.extend(np.tile(warehouse_products['unit_cost'].values, num_snapshots))
+    
+    # Convert to numpy arrays for vectorized operations
+    all_unit_costs = np.array(all_unit_costs)
+    
+    # Generate inventory levels (vectorized)
+    reorder_points = np.random.randint(50, 500, total_inventory_records)
+    max_levels = reorder_points * 3
+    on_hand = np.random.randint(0, 1000, total_inventory_records)  # Simplified for speed
+    
+    # On order logic (vectorized)
+    below_reorder = on_hand < reorder_points
+    on_order = np.where(below_reorder, np.random.randint(0, 500, total_inventory_records), 0)
+    
+    # Create DataFrame in one shot (much faster than appending)
+    df_inventory = pd.DataFrame({
+        'snapshot_date': all_snapshot_dates,
+        'warehouse_id': all_warehouse_ids,
+        'warehouse_name': all_warehouse_names,
+        'product_id': all_product_ids,
+        'quantity_on_hand': on_hand,
+        'quantity_on_order': on_order,
+        'quantity_available': on_hand,
+        'reorder_point': reorder_points,
+        'unit_cost': np.round(all_unit_costs, 2),
+        'inventory_value': np.round(on_hand * all_unit_costs, 2),
+        'is_stockout': on_hand == 0
+    })
+    
     print(f"  Generated {len(df_inventory):,} inventory snapshot records")
     
     return {'FactPurchaseOrders': df_po_lines, 'FactInventory': df_inventory}
