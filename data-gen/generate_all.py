@@ -222,20 +222,23 @@ def generate_conformed_dimensions(config: Dict[str, Any], output_path: Path) -> 
 def generate_domain_data(domain_name: str, generator_func, config: Dict[str, Any], 
                         dimensions: Dict[str, pd.DataFrame], output_path: Path) -> Dict[str, pd.DataFrame]:
     """Generate data for a specific domain and save in Bronze layer structure."""
-    logger.info(f"Generating {domain_name} domain...")
+    # Create display name for logs (supply_chain → Supply Chain)
+    display_name = domain_name.replace('_', ' ').title()
+    logger.info(f"Generating {display_name} domain...")
     
     try:
         domain_data = generator_func(config, dimensions, config['seed'])
         
         for table_name, df in domain_data.items():
+            # Use technical name (with underscores) for folder structure
             save_dataframe(df, table_name, output_path, config, domain=domain_name)
         
         total_rows = sum(len(df) for df in domain_data.values())
-        logger.info(f"  [OK] {domain_name}: {len(domain_data)} tables, {total_rows:,} total rows")
+        logger.info(f"  [OK] {display_name}: {len(domain_data)} tables, {total_rows:,} total rows")
         return domain_data
     
     except Exception as e:
-        logger.error(f"  [ERROR] Error generating {domain_name}: {e}", exc_info=True)
+        logger.error(f"  [ERROR] Error generating {display_name}: {e}", exc_info=True)
         return {}
 
 
@@ -307,8 +310,9 @@ def main():
             logger.warning(f"Unknown domain: {domain}")
             continue
         
+        # Pass technical name with underscores (e.g., supply_chain)
         domain_data = generate_domain_data(
-            domain.replace('_', ' ').title(),
+            domain,
             domain_generators[domain],
             config,
             dimensions,
