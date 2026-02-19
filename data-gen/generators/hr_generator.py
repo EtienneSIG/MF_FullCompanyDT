@@ -45,13 +45,23 @@ def generate_hr_data(config: dict, dimensions: Dict[str, pd.DataFrame], seed: in
     sources = np.random.choice(['Referral', 'LinkedIn', 'Job Board', 'Agency'], 
                                size=num_hires, p=[0.35, 0.30, 0.25, 0.10])
     
+    # Sample employees who were hired (active employees)
+    active_employees = dim_employee[dim_employee['is_active'] == True].copy()
+    
+    # If we need more hires than active employees, sample with replacement
+    if num_hires <= len(active_employees):
+        hired_employees = active_employees.sample(n=num_hires, replace=False, random_state=seed + 3)
+    else:
+        hired_employees = active_employees.sample(n=num_hires, replace=True, random_state=seed + 3)
+    
     df_hiring = pd.DataFrame({
         'req_id': [f'REQ-{i+1:06d}' for i in range(num_hires)],
-        'position_title': np.random.choice(['Software Engineer', 'Sales Rep', 'Customer Support', 'Analyst', 'Manager'], num_hires),
+        'employee_id': hired_employees['employee_id'].values,
+        'position_title': hired_employees['job_title'].values,
         'hire_date': hire_dates['date'].values,
         'time_to_fill_days': np.round(time_to_fill, 0).astype(int),
         'source': sources,
-        'department': np.random.choice(dim_employee['department'].unique(), num_hires)
+        'department': hired_employees['department'].values
     })
     
     return {

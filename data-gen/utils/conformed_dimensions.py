@@ -343,3 +343,151 @@ def generate_dim_geography(config: dict, dim_customer: pd.DataFrame, seed: int) 
     })
     
     return df
+
+
+def generate_dim_facility(config: dict, dim_geography: pd.DataFrame, seed: int) -> pd.DataFrame:
+    """Generate facility dimension."""
+    np.random.seed(seed)
+    fake = Faker()
+    Faker.seed(seed)
+    
+    count = config['count']
+    types_config = config['types']
+    
+    print(f"  Generating {count} facilities...")
+    
+    # Distribute facilities across types
+    facility_types = []
+    for type_config in types_config:
+        type_count = int(count * type_config['percentage'])
+        facility_types.extend([type_config['name']] * type_count)
+    
+    # Fill remainder
+    while len(facility_types) < count:
+        type_config = np.random.choice(types_config)
+        facility_types.append(type_config['name'])
+    
+    # Sample locations from geography
+    geo_samples = dim_geography.sample(n=count, replace=True, random_state=seed)
+    
+    # Size distribution
+    size_dist = config['size_distribution']
+    sizes = np.random.choice(
+        [k.title() for k in size_dist.keys()],
+        size=count,
+        p=list(size_dist.values())
+    )
+    
+    # Square footage based on size
+    sq_footage = np.where(sizes == 'Small', np.random.randint(10000, 50000, count),
+                  np.where(sizes == 'Medium', np.random.randint(50000, 200000, count),
+                           np.random.randint(200000, 500000, count)))
+    
+    is_active = np.random.random(count) < config['active_percentage']
+    
+    df = pd.DataFrame({
+        'facility_id': [f"FAC_{i:04d}" for i in range(count)],
+        'facility_name': [f"{geo_samples.iloc[i]['city']} {facility_types[i]} {i+1}" for i in range(count)],
+        'facility_type': facility_types,
+        'city': geo_samples['city'].values,
+        'country_code': geo_samples['country_code'].values,
+        'geography_id': geo_samples['geography_id'].values,
+        'square_footage': sq_footage,
+        'size_category': sizes,
+        'opened_date': [fake.date_between(start_date='-15y', end_date='-1y') for _ in range(count)],
+        'is_active': is_active,
+        'capacity_utilization_pct': np.round(np.random.uniform(60, 95, count), 1)
+    })
+    
+    return df
+
+
+def generate_dim_project(config: dict, dim_employee: pd.DataFrame, seed: int) -> pd.DataFrame:
+    """Generate project dimension."""
+    np.random.seed(seed)
+    fake = Faker()
+    Faker.seed(seed)
+    
+    count = config['count']
+    categories_config = config['categories']
+    
+    print(f"  Generating {count} projects...")
+    
+    # Distribute projects across categories
+    categories = []
+    for cat_config in categories_config:
+        cat_count = int(count * cat_config['percentage'])
+        categories.extend([cat_config['name']] * cat_count)
+    
+    # Fill remainder
+    while len(categories) < count:
+        cat = np.random.choice([c['name'] for c in categories_config])
+        categories.append(cat)
+    
+    # Status distribution
+    status_dist = config['status_distribution']
+    statuses = np.random.choice(
+        [k.title() for k in status_dist.keys()],
+        size=count,
+        p=list(status_dist.values())
+    )
+    
+    # Budget generation
+    budget_range = config['budget_range']
+    budgets = np.random.uniform(budget_range['min'], budget_range['max'], count)
+    
+    # Sample project leads from employees
+    lead_samples = dim_employee.sample(n=count, replace=True, random_state=seed)
+    
+    # Start dates
+    start_dates = [fake.date_between(start_date='-3y', end_date='today') for _ in range(count)]
+    
+    # Project names based on category
+    project_names = []
+    for i, cat in enumerate(categories):
+        if cat == "Product Innovation":
+            name = f"Innovation: {fake.catch_phrase()}"
+        elif cat == "Process Improvement":
+            name = f"Process Optimization: {fake.bs()}"
+        elif cat == "New Technology":
+            name = f"Tech Initiative: {fake.word().title()} Platform"
+        else:
+            name = f"Infrastructure: {fake.word().title()} Upgrade"
+        project_names.append(name)
+    
+    df = pd.DataFrame({
+        'project_id': [f"PRJ_{i:06d}" for i in range(count)],
+        'project_name': project_names,
+        'category': categories,
+        'status': statuses,
+        'lead_id': lead_samples['employee_id'].values,
+        'start_date': start_dates,
+        'budget_usd': np.round(budgets, 2),
+        'actual_spend_usd': np.round(budgets * np.random.uniform(0.5, 1.2, count), 2),
+        'priority': np.random.choice(['Critical', 'High', 'Medium', 'Low'], count, p=[0.15, 0.30, 0.40, 0.15])
+    })
+    
+    return df
+
+
+def generate_dim_account(config: dict) -> pd.DataFrame:
+    """Generate account (chart of accounts) dimension."""
+    accounts_config = config['accounts']
+    
+    print(f"  Generating {len(accounts_config)} accounts (Chart of Accounts)...")
+    
+    df = pd.DataFrame({
+        'account_id': [f"ACCT_{acc['code']}" for acc in accounts_config],
+        'account_code': [acc['code'] for acc in accounts_config],
+        'account_name': [acc['name'] for acc in accounts_config],
+        'account_type': [acc['type'] for acc in accounts_config],
+        'subcategory': [acc['subcategory'] for acc in accounts_config],
+        'is_active': [True] * len(accounts_config),
+        'normal_balance': [
+            'Debit' if acc['type'] in ['Asset', 'Expense'] else 'Credit'
+            for acc in accounts_config
+        ]
+    })
+    
+    return df
+

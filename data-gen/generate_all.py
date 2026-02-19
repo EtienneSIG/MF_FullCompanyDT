@@ -27,7 +27,10 @@ from utils.conformed_dimensions import (
     generate_dim_customer,
     generate_dim_product,
     generate_dim_employee,
-    generate_dim_geography
+    generate_dim_geography,
+    generate_dim_facility,
+    generate_dim_project,
+    generate_dim_account
 )
 from utils.data_quality import validate_referential_integrity, validate_business_rules
 from utils.text_generator import generate_unstructured_files
@@ -193,6 +196,24 @@ def generate_conformed_dimensions(config: Dict[str, Any], output_path: Path) -> 
     dim_geography = generate_dim_geography(config['dim_geography'], dim_customer, seed)
     save_dataframe(dim_geography, 'DimGeography', output_path, config, domain='dimensions')
     dimensions['DimGeography'] = dim_geography
+    
+    # DimFacility
+    logger.info("Generating DimFacility...")
+    dim_facility = generate_dim_facility(config['dim_facility'], dim_geography, seed)
+    save_dataframe(dim_facility, 'DimFacility', output_path, config, domain='dimensions')
+    dimensions['DimFacility'] = dim_facility
+    
+    # DimProject
+    logger.info("Generating DimProject...")
+    dim_project = generate_dim_project(config['dim_project'], dim_employee, seed)
+    save_dataframe(dim_project, 'DimProject', output_path, config, domain='dimensions')
+    dimensions['DimProject'] = dim_project
+    
+    # DimAccount
+    logger.info("Generating DimAccount...")
+    dim_account = generate_dim_account(config['dim_account'])
+    save_dataframe(dim_account, 'DimAccount', output_path, config, domain='dimensions')
+    dimensions['DimAccount'] = dim_account
     
     logger.info(f"[OK] Conformed dimensions generated: {sum(len(df) for df in dimensions.values()):,} total rows")
     return dimensions

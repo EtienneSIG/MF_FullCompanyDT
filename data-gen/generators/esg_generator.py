@@ -9,25 +9,25 @@ def generate_esg_data(config: dict, dimensions: Dict[str, pd.DataFrame], seed: i
     np.random.seed(seed)
     
     esg_config = config.get('esg', {})
-    facilities_count = esg_config.get('emissions', {}).get('facilities_count', 15)
     
     dim_date = dimensions['DimDate']
-    dim_geography = dimensions['DimGeography']
+    dim_facility = dimensions['DimFacility']
     
-    print(f"  Generating ESG data for {facilities_count} facilities...")
+    print(f"  Generating ESG data for {len(dim_facility)} facilities...")
     
     # Get monthly dates
     monthly_dates = dim_date[dim_date['day_of_month'] == 1].copy()
     num_months = len(monthly_dates)
     
-    # Create facility records
-    facilities = dim_geography.sample(n=facilities_count, random_state=seed)
+    # Use all facilities
+    facilities_count = len(dim_facility)
     
     # Generate emissions data (monthly per facility)
     total_records = facilities_count * num_months
     
     # Repeat facilities and dates
-    facility_ids = np.repeat(facilities['city'].values, num_months)
+    facility_ids = np.repeat(dim_facility['facility_id'].values, num_months)
+    facility_names = np.repeat(dim_facility['facility_name'].values, num_months)
     dates = np.tile(monthly_dates['date'].values, facilities_count)
     
     # Generate emission values (declining trend -5% annually)
@@ -42,7 +42,8 @@ def generate_esg_data(config: dict, dimensions: Dict[str, pd.DataFrame], seed: i
     scope_3 = emissions * 0.20
     
     df_emissions = pd.DataFrame({
-        'facility_name': facility_ids,
+        'facility_id': facility_ids,
+        'facility_name': facility_names,
         'measurement_date': dates,
         'scope_1_co2_tonnes': np.round(scope_1, 2),
         'scope_2_co2_tonnes': np.round(scope_2, 2),

@@ -98,6 +98,121 @@ dim_employee:
 dim_geography:
   count: 500
   # Auto-generated based on customer distribution
+
+dim_facility:
+  count: 15
+  types:
+    - name: "Manufacturing"
+      percentage: 0.40
+    - name: "Warehouse"
+      percentage: 0.30
+    - name: "Office"
+      percentage: 0.20
+    - name: "R&D Lab"
+      percentage: 0.10
+  size_distribution:
+    small: 0.30      # < 50K sq ft
+    medium: 0.50     # 50K-200K sq ft
+    large: 0.20      # > 200K sq ft
+  active_percentage: 0.95
+  
+dim_project:
+  count: 300
+  categories:
+    - name: "Product Innovation"
+      percentage: 0.35
+    - name: "Process Improvement"
+      percentage: 0.30
+    - name: "New Technology"
+      percentage: 0.20
+    - name: "Infrastructure"
+      percentage: 0.15
+  status_distribution:
+    planning: 0.15
+    research: 0.25
+    development: 0.35
+    testing: 0.15
+    completed: 0.10
+  budget_range:
+    min: 50000
+    max: 2000000
+    average: 350000
+    
+dim_account:
+  # Chart of Accounts for Finance
+  accounts:
+    - code: "1000"
+      name: "Cash"
+      type: "Asset"
+      subcategory: "Current Assets"
+    - code: "1100"
+      name: "Accounts Receivable"
+      type: "Asset"
+      subcategory: "Current Assets"
+    - code: "1200"
+      name: "Inventory"
+      type: "Asset"
+      subcategory: "Current Assets"
+    - code: "1300"
+      name: "Prepaid Expenses"
+      type: "Asset"
+      subcategory: "Current Assets"
+    - code: "1500"
+      name: "Fixed Assets"
+      type: "Asset"
+      subcategory: "Non-Current Assets"
+    - code: "2000"
+      name: "Accounts Payable"
+      type: "Liability"
+      subcategory: "Current Liabilities"
+    - code: "2100"
+      name: "Accrued Expenses"
+      type: "Liability"
+      subcategory: "Current Liabilities"
+    - code: "2500"
+      name: "Long-term Debt"
+      type: "Liability"
+      subcategory: "Non-Current Liabilities"
+    - code: "3000"
+      name: "Common Stock"
+      type: "Equity"
+      subcategory: "Shareholders Equity"
+    - code: "3100"
+      name: "Retained Earnings"
+      type: "Equity"
+      subcategory: "Shareholders Equity"
+    - code: "4000"
+      name: "Product Revenue"
+      type: "Revenue"
+      subcategory: "Operating Revenue"
+    - code: "4100"
+      name: "Service Revenue"
+      type: "Revenue"
+      subcategory: "Operating Revenue"
+    - code: "5000"
+      name: "Cost of Goods Sold"
+      type: "Expense"
+      subcategory: "Direct Costs"
+    - code: "6000"
+      name: "Salaries & Wages"
+      type: "Expense"
+      subcategory: "Operating Expenses"
+    - code: "6100"
+      name: "Marketing & Advertising"
+      type: "Expense"
+      subcategory: "Operating Expenses"
+    - code: "6200"
+      name: "R&D"
+      type: "Expense"
+      subcategory: "Operating Expenses"
+    - code: "6300"
+      name: "IT & Technology"
+      type: "Expense"
+      subcategory: "Operating Expenses"
+    - code: "6400"
+      name: "Facilities & Utilities"
+      type: "Expense"
+      subcategory: "Operating Expenses"
   
 # ===== DOMAIN-SPECIFIC TABLES =====
 

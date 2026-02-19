@@ -151,6 +151,94 @@ Complete data dictionary for the enterprise data platform covering **15 business
 
 ---
 
+### DimFacility
+
+**Description:** Physical facilities (manufacturing plants, warehouses, offices, R&D labs)
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `facility_id` | string | Unique facility identifier | `FAC_0001` |
+| `facility_name` | string | Facility name | `Seattle Manufacturing 1` |
+| `facility_type` | string | Facility type | `Manufacturing`, `Warehouse`, `Office`, `R&D Lab` |
+| `city` | string | City location | `Seattle` |
+| `country_code` | string | ISO country code | `US` |
+| `geography_id` | string | FK → DimGeography | `GEO_US_SEA_001` |
+| `square_footage` | int | Facility size in sq ft | `125000` |
+| `size_category` | string | Size classification | `Small`, `Medium`, `Large` |
+| `opened_date` | date | Facility opening date | `2015-03-15` |
+| `is_active` | boolean | Currently operational | `true` |
+| `capacity_utilization_pct` | decimal(5,2) | Current capacity utilization % | `85.5` |
+
+**Primary Key:** `facility_id`
+**Foreign Keys:** `geography_id`
+**Records:** 15
+**Grain:** One row per facility
+
+**Business Rules:**
+- Type distribution: Manufacturing 40%, Warehouse 30%, Office 20%, R&D Lab 10%
+- Size categories: Small (<50K sq ft), Medium (50K-200K sq ft), Large (>200K sq ft)
+
+---
+
+### DimProject
+
+**Description:** Project master data (innovation, infrastructure, process improvement)
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `project_id` | string | Unique project identifier | `PRJ_000123` |
+| `project_name` | string | Project name | `Innovation: Revolutionary Widget` |
+| `category` | string | Project category | `Product Innovation`, `Process Improvement`, `New Technology`, `Infrastructure` |
+| `status` | string | Current status | `Planning`, `Research`, `Development`, `Testing`, `Completed` |
+| `lead_id` | string | FK → DimEmployee (project lead) | `EMP_00456` |
+| `start_date` | date | Project start date | `2024-01-15` |
+| `budget_usd` | decimal(15,2) | Approved budget | `450000.00` |
+| `actual_spend_usd` | decimal(15,2) | Actual spending to date | `380250.50` |
+| `priority` | string | Project priority | `Critical`, `High`, `Medium`, `Low` |
+
+**Primary Key:** `project_id`
+**Foreign Keys:** `lead_id`
+**Records:** 300
+**Grain:** One row per project
+
+**Business Rules:**
+- Category distribution: Product Innovation 35%, Process Improvement 30%, New Technology 20%, Infrastructure 15%
+- Status distribution: Planning 15%, Research 25%, Development 35%, Testing 15%, Completed 10%
+- Budget range: $50K - $2M, average $350K
+
+---
+
+### DimAccount
+
+**Description:** Chart of accounts for financial transactions
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `account_id` | string | Unique account identifier | `ACCT_1000` |
+| `account_code` | string | GL account code | `1000` |
+| `account_name` | string | Account name | `Cash` |
+| `account_type` | string | Account classification | `Asset`, `Liability`, `Equity`, `Revenue`, `Expense` |
+| `subcategory` | string | Account subcategory | `Current Assets`, `Operating Revenue`, etc. |
+| `is_active` | boolean | Currently in use | `true` |
+| `normal_balance` | string | Normal balance side | `Debit`, `Credit` |
+
+**Primary Key:** `account_id`
+**Records:** 18
+**Grain:** One row per GL account
+
+**Account Types:**
+- **Assets:** Cash, Accounts Receivable, Inventory, Prepaid Expenses, Fixed Assets
+- **Liabilities:** Accounts Payable, Accrued Expenses, Long-term Debt
+- **Equity:** Common Stock, Retained Earnings
+- **Revenue:** Product Revenue, Service Revenue
+- **Expenses:** COGS, Salaries & Wages, Marketing & Advertising, R&D, IT & Technology, Facilities & Utilities
+
+**Normal Balance Rules:**
+- Assets and Expenses: Debit
+- Liabilities, Equity, and Revenue: Credit
+
+---
+
 ## 📊 Domain-Specific Tables
 
 ### 1. CRM Domain
@@ -669,19 +757,23 @@ Tables: `controls`, `control_executions`, `incidents`, `remediation_actions`, `v
 | Column | Type | Description |
 |--------|------|-------------|
 | `experiment_id` | string | Unique experiment identifier |
-| `start_date_id` | int | FK → DimDate |
-| `end_date_id` | int | FK → DimDate |
-| `product_id` | string | FK → DimProduct (experimental product) |
-| `scientist_employee_id` | string | FK → DimEmployee |
+| `project_id` | string | FK → DimProject |
+| `experiment_date_id` | int | FK → DimDate |
+| `researcher_id` | string | FK → DimEmployee |
 | `experiment_type` | string | Prototype, Performance, Durability, Safety |
-| `hypothesis` | string | Experiment hypothesis |
-| `result` | string | Success, Partial Success, Failure |
-| `cost` | decimal(15,2) | Experiment cost |
-| `metrics_json` | string | JSON with test results |
+| `is_successful` | boolean | Experiment outcome |
+| `cost_usd` | decimal(15,2) | Experiment cost |
+| `duration_days` | int | Experiment duration |
 
 **Primary Key:** `experiment_id`
+**Foreign Keys:** `project_id`, `experiment_date_id`, `researcher_id`
 **Records:** ~15,000
 **Grain:** One row per experiment
+
+**Measures:**
+- Success Rate = COUNT WHERE is_successful = true / COUNT(*)
+- Average Experiment Cost = AVG(cost_usd)
+- Total R&D Spend = SUM(cost_usd)
 
 ---
 
