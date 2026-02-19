@@ -471,30 +471,30 @@ Complete data dictionary for the enterprise data platform covering **15 business
 
 #### FactInventory
 
-**Description:** Inventory snapshots (daily)
+**Description:** Inventory snapshots (weekly)
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `snapshot_date_id` | int | FK → DimDate |
+| `snapshot_date` | date | Snapshot date |
+| `warehouse_id` | string | FK → DimFacility (warehouse) |
+| `warehouse_name` | string | Warehouse name |
 | `product_id` | string | FK → DimProduct |
-| `warehouse_id` | string | FK → DimWarehouse |
 | `quantity_on_hand` | int | Current quantity |
-| `quantity_reserved` | int | Reserved for orders |
+| `quantity_on_order` | int | Quantity on purchase orders |
 | `quantity_available` | int | Available to promise |
-| `quantity_in_transit` | int | In transit to warehouse |
 | `reorder_point` | int | Reorder trigger level |
-| `safety_stock` | int | Minimum safety stock |
 | `unit_cost` | decimal(10,2) | Standard cost per unit |
 | `inventory_value` | decimal(15,2) | Total value (quantity × cost) |
-| `days_of_supply` | int | Days of inventory at current demand rate |
+| `is_stockout` | boolean | Stockout flag (quantity = 0) |
 
-**Composite Key:** (`snapshot_date_id`, `product_id`, `warehouse_id`)
-**Records:** ~300,000 (daily snapshots × products × warehouses)
-**Grain:** One row per product per warehouse per day
+**Composite Key:** (`snapshot_date`, `product_id`, `warehouse_id`)
+**Records:** ~150,000 (weekly snapshots × products × warehouses)
+**Grain:** One row per product per warehouse per snapshot date
 
 **Measures:**
 - Inventory Turns = COGS / AVG(inventory_value)
-- Stockout Rate = COUNT WHERE quantity_available = 0 / COUNT(*)
+- Stockout Rate = COUNT WHERE is_stockout = true / COUNT(*)
+- Average Inventory Value = AVG(inventory_value)
 
 ---
 
@@ -505,59 +505,87 @@ Complete data dictionary for the enterprise data platform covering **15 business
 | Column | Type | Description |
 |--------|------|-------------|
 | `po_id` | string | Purchase order ID |
-| `po_line_id` | string | PO line item ID |
-| `supplier_id` | string | FK → DimSupplier |
+| `po_line_id` | int | PO line item number |
+| `supplier_id` | string | Supplier identifier |
 | `product_id` | string | FK → DimProduct |
-| `order_date_id` | int | FK → DimDate |
-| `expected_delivery_date_id` | int | FK → DimDate |
-| `actual_delivery_date_id` | int | FK → DimDate (NULL if not delivered) |
+| `order_date` | date | Order date |
+| `expected_delivery_date` | date | Expected delivery date |
+| `actual_delivery_date` | date | Actual delivery date (NULL if not delivered) |
 | `quantity` | int | Quantity ordered |
 | `unit_price` | decimal(10,2) | Purchase price per unit |
 | `total_amount` | decimal(15,2) | Total PO line value |
-| `status` | string | Draft, Submitted, Approved, Shipped, Received, Cancelled |
+| `status` | string | Received, In Transit, Pending |
 | `days_late` | int | Days late (positive) or early (negative) |
 
 **Composite Key:** (`po_id`, `po_line_id`)
-**Records:** ~200,000
+**Records:** ~30,000 (10,000 POs × 3 lines avg)
 **Grain:** One row per PO line item
 
 **Measures:**
 - On-Time Delivery % = COUNT WHERE days_late <= 0 / COUNT(*)
 - Average Lead Time = AVG(actual_delivery_date - order_date)
+- Total Procurement Value = SUM(total_amount)
 
 ---
 
 ### 7. Manufacturing Domain
 
-#### FactProduction
+#### FactWorkOrders
 
-**Description:** Manufacturing work orders and output
+**Description:** Manufacturing work order master
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `work_order_id` | string | Unique work order ID |
 | `product_id` | string | FK → DimProduct |
-| `production_date_id` | int | FK → DimDate |
-| `plant_id` | string | FK → DimPlant |
+| `facility_id` | string | FK → DimFacility (plant) |
+| `start_date` | date | Work order start date |
+| `due_date` | date | Planned completion date |
+| `status` | string | Released, In Progress, Complete, On Hold, Cancelled |
 | `planned_quantity` | int | Planned production quantity |
-| `actual_quantity` | int | Actual quantity produced |
-| `good_quantity` | int | Quality-passed quantity |
-| `scrap_quantity` | int | Scrap/rework quantity |
-| `standard_hours` | decimal(10,2) | Standard labor hours |
-| `actual_hours` | decimal(10,2) | Actual labor hours |
-| `downtime_hours` | decimal(10,2) | Equipment downtime |
-| `yield_percent` | decimal(5,2) | Yield % (good / actual) |
-| `efficiency_percent` | decimal(5,2) | Efficiency % (standard / actual) |
-| `oee` | decimal(5,2) | Overall Equipment Effectiveness |
+| `priority` | string | Low, Normal, High, Urgent |
+| `supervisor_id` | string | FK → DimEmployee (supervisor) |
 
 **Primary Key:** `work_order_id`
-**Records:** ~100,000
+**Records:** ~5,000
 **Grain:** One row per work order
 
 **Measures:**
-- Average Yield = AVG(yield_percent)
-- OEE = AVG(oee)
+- Work Orders by Status = COUNT BY status
+- Average Planned Quantity = AVG(planned_quantity)
+- On-Time Completion % from related FactProduction
+
+---
+
+#### FactProduction
+
+**Description:** Manufacturing production output (completed work orders)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `production_id` | string | Unique production record ID |
+| `work_order_id` | string | FK → FactWorkOrders |
+| `product_id` | string | FK → DimProduct |
+| `facility_id` | string | FK → DimFacility (plant) |
+| `production_date` | date | Production completion date |
+| `planned_quantity` | int | Planned production quantity |
+| `actual_quantity` | int | Actual quantity produced |
+| `scrap_quantity` | int | Scrap/rework quantity |
+| `yield_pct` | decimal(5,2) | Yield % (actual / planned) |
+| `oee_pct` | decimal(5,2) | Overall Equipment Effectiveness |
+| `labor_hours` | decimal(10,2) | Total labor hours |
+| `machine_hours` | decimal(10,2) | Total machine hours |
+
+**Primary Key:** `production_id`
+**Foreign Keys:** `work_order_id`, `product_id`, `facility_id`
+**Records:** ~2,500 (50% of work orders completed)
+**Grain:** One row per completed work order
+
+**Measures:**
+- Average Yield = AVG(yield_pct)
+- Average OEE = AVG(oee_pct)
 - Scrap Rate = SUM(scrap_quantity) / SUM(actual_quantity)
+- Total Production Volume = SUM(actual_quantity)
 
 ---
 
@@ -742,9 +770,78 @@ Complete data dictionary for the enterprise data platform covering **15 business
 
 ### 13. Risk & Compliance Domain
 
-*(See MF_RiskComplianceAudit for detailed schema)*
+#### FactRisks
 
-Tables: `controls`, `control_executions`, `incidents`, `remediation_actions`, `vendors`
+**Description:** Risk register and incidents
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `risk_id` | string | Unique risk identifier |
+| `risk_date` | date | Risk identification date |
+| `risk_category` | string | Operational, Financial, Strategic, Compliance, Cybersecurity |
+| `impact` | string | Low, Medium, High, Critical |
+| `likelihood` | string | Rare, Unlikely, Possible, Likely, Almost Certain |
+| `risk_score` | int | Risk score (1-100) |
+| `status` | string | Open, Mitigated, Closed |
+| `owner_id` | string | FK → DimEmployee |
+
+**Primary Key:** `risk_id`
+**Records:** ~200
+**Grain:** One row per risk
+
+**Measures:**
+- Open Risks = COUNT WHERE status = 'Open'
+- High Risk Count = COUNT WHERE impact = 'High' OR impact = 'Critical'
+- Average Risk Score = AVG(risk_score)
+
+---
+
+#### FactAudits
+
+**Description:** Internal and external audits
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `audit_id` | string | Unique audit identifier |
+| `audit_date` | date | Audit date |
+| `audit_type` | string | Internal, External, Regulatory, IT |
+| `auditor_id` | string | FK → DimEmployee |
+| `findings_count` | int | Number of findings |
+| `critical_findings` | int | Critical findings |
+| `status` | string | Planned, In Progress, Complete |
+
+**Primary Key:** `audit_id`
+**Records:** ~150
+**Grain:** One row per audit
+
+**Measures:**
+- Total Audits = COUNT(audit_id)
+- Average Findings = AVG(findings_count)
+- Critical Findings Rate = SUM(critical_findings) / SUM(findings_count)
+
+---
+
+#### FactComplianceChecks
+
+**Description:** Compliance control testing
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `check_id` | string | Unique check identifier |
+| `check_date` | date | Check execution date |
+| `framework` | string | SOX, GDPR, HIPAA, ISO 27001, PCI DSS |
+| `control_id` | string | Control reference |
+| `result` | string | Pass, Fail |
+| `automated` | boolean | Automated check flag |
+
+**Primary Key:** `check_id`
+**Records:** ~1,800 (150 controls × 12 months)
+**Grain:** One row per compliance check execution
+
+**Measures:**
+- Pass Rate = COUNT WHERE result = 'Pass' / COUNT(*)
+- Failed Checks = COUNT WHERE result = 'Fail'
+- Automation Rate = COUNT WHERE automated = true / COUNT(*)
 
 ---
 
@@ -786,15 +883,11 @@ Tables: `controls`, `control_executions`, `incidents`, `remediation_actions`, `v
 | Column | Type | Description |
 |--------|------|-------------|
 | `defect_id` | string | Unique defect identifier |
-| `detection_date_id` | int | FK → DimDate |
 | `product_id` | string | FK → DimProduct |
-| `lot_number` | string | Manufacturing lot |
+| `detection_date` | date | Defect detection date |
 | `defect_type` | string | Cosmetic, Functional, Safety |
 | `severity` | string | Critical, Major, Minor |
-| `quantity_affected` | int | Units affected |
-| `root_cause` | string | Root cause (if known) |
-| `capa_id` | string | Corrective action ID |
-| `status` | string | Open, Under Investigation, Resolved |
+| `resolved` | boolean | Resolution status |
 
 **Primary Key:** `defect_id`
 **Records:** ~80,000
@@ -803,6 +896,30 @@ Tables: `controls`, `control_executions`, `incidents`, `remediation_actions`, `v
 **Measures:**
 - Defect Rate = COUNT(defect_id) / SUM(production_quantity)
 - Critical Defects = COUNT WHERE severity = 'Critical'
+- Resolution Rate = COUNT WHERE resolved = true / COUNT(*)
+
+---
+
+#### FactSecurityEvents
+
+**Description:** IT security incidents
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `event_id` | string | Unique security event identifier |
+| `event_date` | date | Event detection date |
+| `event_type` | string | Intrusion Attempt, Malware, Phishing, Policy Violation |
+| `severity` | string | Low, Medium, High, Critical |
+| `resolved` | boolean | Resolution status |
+
+**Primary Key:** `event_id`
+**Records:** ~1,500
+**Grain:** One row per security event
+
+**Measures:**
+- Total Security Events = COUNT(event_id)
+- Critical Events = COUNT WHERE severity = 'Critical'
+- Resolution Rate = COUNT WHERE resolved = true / COUNT(*)
 
 ---
 
